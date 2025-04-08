@@ -61,8 +61,8 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                     if (Hls.isSupported()) {
                         hls = new Hls({
                             xhrSetup: function(xhr, url) {
-                                // Don't interfere with the xhr for local segment requests
-                                if (url.includes('/api/seg-') || url.includes('localhost')) {
+                                // Don't modify URLs for local segment requests
+                                if (url.includes('/api/seg-') || url.includes('localhost') || url.includes('.ts')) {
                                     return;
                                 }
                                 
@@ -72,11 +72,36 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                                     xhr.open('GET', `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`, true);
                                 }
                             },
+                            // Set configuration for better segment loading
+                            maxBufferSize: 0,
+                            maxBufferLength: 30,
+                            maxMaxBufferLength: 600,
+                            maxLoadingDelay: 4,
+                            manifestLoadingTimeOut: 10000,
+                            manifestLoadingMaxRetry: 4,
+                            fragLoadingTimeOut: 20000,
+                            fragLoadingMaxRetry: 6,
+                            levelLoadingTimeOut: 10000,
+                            levelLoadingMaxRetry: 4,
+                            startFragPrefetch: true,
+                            testBandwidth: true,
+                            progressive: true,
+                            lowLatencyMode: false,
                             debug: false
                         });
 
-                        // Load the source directly without proxying again
-                        hls.loadSource(url);
+                        // For local development with HLS, modify URL behavior
+                        let sourceUrl = url;
+                        if (url.includes('localhost') && !url.includes('/api/proxy')) {
+                            console.log('Loading local HLS source directly:', url);
+                            sourceUrl = url; // Use direct URL for localhost
+                        } else if (!url.startsWith('/api/proxy') && url.startsWith('http')) {
+                            console.log('Loading external HLS source via proxy:', url);
+                            sourceUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+                        }
+                        
+                        console.log('HLS source URL:', sourceUrl);
+                        hls.loadSource(sourceUrl);
                         hls.attachMedia(video);
 
                         // Handle duration and currentTime through the video element

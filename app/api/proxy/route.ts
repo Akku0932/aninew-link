@@ -20,32 +20,39 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(url);
         }
 
+        // Clone the request headers to forward
+        const headers = new Headers({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Origin': request.headers.get('origin') || '',
+            'Referer': request.headers.get('referer') || '',
+        });
+
+        // Forward the request
         const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': '*/*',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Origin': request.headers.get('origin') || '',
-                'Referer': request.headers.get('referer') || '',
-            },
+            headers,
             redirect: 'follow',
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            console.error(`Proxy error: Non-OK response ${response.status} for ${url}`);
+            return new NextResponse(`Error ${response.status}: ${response.statusText}`, { 
+                status: response.status 
+            });
         }
 
         // Get the content type
         const contentType = response.headers.get('content-type') || '';
 
         // Create response headers
-        const headers = new Headers();
-        headers.set('Content-Type', contentType);
-        headers.set('Access-Control-Allow-Origin', '*');
-        headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        headers.set('Access-Control-Allow-Headers', 'Content-Type, Range');
-        headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+        const responseHeaders = new Headers();
+        responseHeaders.set('Content-Type', contentType);
+        responseHeaders.set('Access-Control-Allow-Origin', '*');
+        responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Range');
+        responseHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
         
         // Copy important headers from the original response
         const headersToCopy = [
@@ -62,7 +69,7 @@ export async function GET(request: NextRequest) {
         headersToCopy.forEach(header => {
             const value = response.headers.get(header);
             if (value) {
-                headers.set(header, value);
+                responseHeaders.set(header, value);
             }
         });
 
@@ -72,19 +79,32 @@ export async function GET(request: NextRequest) {
             url.includes('.m3u8')) {
             
             const text = await response.text();
-            const baseURL = new URL(url);
-            baseURL.search = ''; // Remove query params
-            baseURL.hash = '';   // Remove hash
+            const baseUrl = new URL(url);
+            baseUrl.search = ''; // Remove query params
+            baseUrl.hash = '';   // Remove hash
+            const baseUrlPath = baseUrl.href.substring(0, baseUrl.href.lastIndexOf('/') + 1);
             
-            // Replace relative URLs with absolute ones
+            // Replace relative URLs with proxied absolute ones
             const modifiedText = text.replace(/^(?!#)(?!https?:\/\/)([^#][^\r\n]*)/gm, (match) => {
                 // Convert relative URL to absolute
-                const absoluteUrl = new URL(match, baseURL.href).href;
-                return absoluteUrl;
+                const absoluteUrl = new URL(match, baseUrlPath).href;
+                // Use proxy for non-localhost absolute URLs
+                return `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
             });
             
             return new NextResponse(modifiedText, { 
-                headers 
+                headers: responseHeaders
+            });
+        }
+
+        // Handle video segments (ts files)
+        if (url.includes('.ts') || contentType.includes('video/mp2t')) {
+            const stream = response.body;
+            if (!stream) {
+                return new NextResponse('Stream not available', { status: 500 });
+            }
+            return new NextResponse(stream, {
+                headers: responseHeaders
             });
         }
 
@@ -102,9 +122,9 @@ export async function GET(request: NextRequest) {
             const end = parts[1] ? parseInt(parts[1], 10) : size - 1;
             const chunksize = end - start + 1;
 
-            headers.set('Content-Range', `bytes ${start}-${end}/${size}`);
-            headers.set('Content-Length', chunksize.toString());
-            headers.set('Accept-Ranges', 'bytes');
+            responseHeaders.set('Content-Range', `bytes ${start}-${end}/${size}`);
+            responseHeaders.set('Content-Length', chunksize.toString());
+            responseHeaders.set('Accept-Ranges', 'bytes');
 
             const stream = response.body;
             if (!stream) {
@@ -113,7 +133,7 @@ export async function GET(request: NextRequest) {
 
             return new NextResponse(stream, {
                 status: 206,
-                headers,
+                headers: responseHeaders,
             });
         }
 
@@ -123,7 +143,7 @@ export async function GET(request: NextRequest) {
             return new NextResponse('Stream not available', { status: 500 });
         }
 
-        return new NextResponse(stream, { headers });
+        return new NextResponse(stream, { headers: responseHeaders });
     } catch (error) {
         console.error('Proxy error:', error);
         return new NextResponse(`Proxy error: ${error instanceof Error ? error.message : 'Unknown error'}`, { status: 500 });
