@@ -44,8 +44,8 @@ export default function LoginForm() {
 
   const handleAniListLogin = () => {
     setIsLoading(true)
-    // In a real implementation, redirect to AniList OAuth flow
-    window.location.href = "https://anilist.co/api/v2/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&response_type=code"
+    // Redirect to AniList OAuth flow with the provided client ID
+    window.location.href = "https://anilist.co/api/v2/oauth/authorize?client_id=25870&redirect_uri=https://aninew-link.vercel.app/auth/callback&response_type=code"
   }
 
   return (

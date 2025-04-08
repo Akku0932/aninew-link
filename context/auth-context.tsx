@@ -8,6 +8,16 @@ type User = {
   email: string
   avatarUrl?: string
   provider?: "email" | "anilist"
+  favorites?: AnimeItem[]
+}
+
+type AnimeItem = {
+  id: string
+  anilistId?: string
+  title: string
+  image: string
+  type?: string
+  addedAt: number
 }
 
 type AuthContextType = {
@@ -18,9 +28,15 @@ type AuthContextType = {
   register: (name: string, email: string, password: string) => Promise<void>
   loginWithAniList: (code: string) => Promise<void>
   logout: () => void
+  addToFavorites: (anime: Omit<AnimeItem, "addedAt">) => void
+  removeFromFavorites: (animeId: string) => void
+  isFavorite: (animeId: string) => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+const ANILIST_CLIENT_ID = "25870"
+const ANILIST_CLIENT_SECRET = "doXAkby3ijsCpI5zCeLyg164KK0stGvmJdoshmAF"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -62,7 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: "user-1",
             name: "Demo User",
             email: "demo@example.com",
-            provider: "email"
+            provider: "email",
+            favorites: []
           }
           
           localStorage.setItem("user", JSON.stringify(userData))
@@ -81,7 +98,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   id: foundUser.id,
                   name: foundUser.name,
                   email: foundUser.email,
-                  provider: "email"
+                  provider: "email",
+                  favorites: foundUser.favorites || []
                 }
                 
                 localStorage.setItem("user", JSON.stringify(userData))
@@ -101,11 +119,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const loginWithAniList = async (code: string) => {
-    // In a real app, you would exchange this code for a token
-    // and then fetch user data from the AniList API
+    // In a real app, exchange the code for a token with AniList API
     setIsLoading(true)
     
     return new Promise<void>((resolve, reject) => {
+      // In a real implementation, you would make an API call to AniList to exchange the code for a token
+      // Example API call:
+      // POST https://anilist.co/api/v2/oauth/token
+      // {
+      //   grant_type: "authorization_code",
+      //   client_id: ANILIST_CLIENT_ID,
+      //   client_secret: ANILIST_CLIENT_SECRET,
+      //   redirect_uri: "https://aninew-link.vercel.app/auth/callback",
+      //   code: code
+      // }
+      
       setTimeout(() => {
         try {
           // Mock AniList user data
@@ -114,7 +142,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name: "AniList User",
             email: `user${Date.now()}@anilist.co`,
             avatarUrl: "https://i.imgur.com/q0OhA.png",
-            provider: "anilist"
+            provider: "anilist",
+            favorites: []
           }
           
           localStorage.setItem("user", JSON.stringify(userData))
@@ -155,7 +184,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name,
           email,
           password, // In a real app, this would be hashed
-          provider: "email"
+          provider: "email",
+          favorites: []
         }
         
         users.push(newUser)
@@ -167,6 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         //   id: newUser.id,
         //   name: newUser.name,
         //   email: newUser.email,
+        //   favorites: []
         // };
         // localStorage.setItem("user", JSON.stringify(userData));
         // setUser(userData);
@@ -181,6 +212,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }
 
+  const addToFavorites = (anime: Omit<AnimeItem, "addedAt">) => {
+    if (!user) return;
+
+    const animeItem: AnimeItem = {
+      ...anime,
+      addedAt: Date.now()
+    };
+
+    // Create a new user object with the updated favorites
+    const updatedUser = {
+      ...user,
+      favorites: [
+        ...(user.favorites || []).filter(item => item.id !== anime.id),
+        animeItem
+      ]
+    };
+
+    // Update state and localStorage
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+
+    // If user was registered (not via AniList), also update in users array
+    if (user.provider === "email") {
+      const storedUsers = localStorage.getItem("users");
+      if (storedUsers) {
+        try {
+          const users = JSON.parse(storedUsers);
+          const updatedUsers = users.map((u: any) => 
+            u.id === user.id ? { ...u, favorites: updatedUser.favorites } : u
+          );
+          localStorage.setItem("users", JSON.stringify(updatedUsers));
+        } catch (error) {
+          console.error("Failed to update user favorites in users storage:", error);
+        }
+      }
+    }
+  };
+
+  const removeFromFavorites = (animeId: string) => {
+    if (!user) return;
+
+    // Create a new user object without the removed anime
+    const updatedUser = {
+      ...user,
+      favorites: (user.favorites || []).filter(item => item.id !== animeId)
+    };
+
+    // Update state and localStorage
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+
+    // If user was registered (not via AniList), also update in users array
+    if (user.provider === "email") {
+      const storedUsers = localStorage.getItem("users");
+      if (storedUsers) {
+        try {
+          const users = JSON.parse(storedUsers);
+          const updatedUsers = users.map((u: any) => 
+            u.id === user.id ? { ...u, favorites: updatedUser.favorites } : u
+          );
+          localStorage.setItem("users", JSON.stringify(updatedUsers));
+        } catch (error) {
+          console.error("Failed to update user favorites in users storage:", error);
+        }
+      }
+    }
+  };
+
+  const isFavorite = (animeId: string) => {
+    if (!user || !user.favorites) return false;
+    return user.favorites.some(item => item.id === animeId);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -191,6 +295,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         loginWithAniList,
         logout,
+        addToFavorites,
+        removeFromFavorites,
+        isFavorite
       }}
     >
       {children}

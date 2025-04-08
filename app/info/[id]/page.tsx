@@ -4,10 +4,11 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Play, Info, Star, Calendar, Clock, List, ChevronDown, Bookmark, Users, Heart } from "lucide-react"
+import { Play, Info, Star, Calendar, Clock, List, ChevronDown, Users, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import AnimeFavoriteButton from "@/components/anime-favorite-button"
 import {
   Tooltip,
   TooltipContent,
@@ -38,6 +39,7 @@ type AnimeInfo = {
     views?: number
     favorites?: number
     rate?: string
+    anilistId?: string
   }
   otherInfo: {
     japanese?: string
@@ -323,10 +325,14 @@ export default function AnimeInfoPage() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="outline" className="w-full dark:bg-gray-800 bg-white">
-                      <Bookmark className="h-4 w-4 mr-2" />
-                      Save
-                    </Button>
+                    <AnimeFavoriteButton 
+                      animeId={id}
+                      title={title} 
+                      image={image}
+                      type={type}
+                      anilistId={info.anilistId || undefined}
+                      className="w-full dark:bg-gray-800 bg-white"
+                    />
                   </TooltipTrigger>
                   <TooltipContent>Add to watchlist</TooltipContent>
                 </Tooltip>
