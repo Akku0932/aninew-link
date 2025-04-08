@@ -36,7 +36,6 @@ type AnimeInfo = {
     duration: string
     sub: number | null
     dub: number | null
-    raw?: number | null
     eps: number
     pg?: string
     quality?: string
@@ -360,10 +359,10 @@ export default function WatchPage() {
 
   // Fetch video source for an episode
   const fetchVideoSource = async (episodeId: string) => {
-    try {
       setIsLoading(true);
       setError(null);
-
+      
+    try {
       const animeId = typeof id === "string" ? id.split("?")[0] : id;
       
       console.log('Fetching video source:', {
@@ -373,133 +372,100 @@ export default function WatchPage() {
         server: selectedServer
       });
       
-      // First check if sub is available
-      const subResponse = await fetch(
-        `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=sub&server=${selectedServer}`
-      );
-      const subData = await subResponse.json();
-
-      if (subData?.sources?.length > 0) {
-        // If sub is available, check for dub
-        const dubResponse = await fetch(
-          `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=dub&server=${selectedServer}`
-        );
-        const dubData = await dubResponse.json();
-
-        if (dubData?.sources?.length > 0) {
-          // Both sub and dub are available, use the selected category
+      // Check all categories availability
+      const categoriesToCheck: ("sub" | "dub" | "raw")[] = ["raw", "sub", "dub"];
+      const availableCats: ("sub" | "dub" | "raw")[] = [];
+      
+      for (const cat of categoriesToCheck) {
+        try {
           const response = await fetch(
-            `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${category}&server=${selectedServer}`
+            `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${cat}&server=${selectedServer}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
           );
-          const data = await response.json();
-
-          if (data?.sources?.length > 0) {
-            // Validate the video source before setting it
-            const validSource = await validateVideoSource(data.sources[0].url);
-            if (validSource) {
-              setVideoSrc(data.sources[0].url);
-              setSubtitles(data.subtitles || []);
-              setAudioType(category === "dub" ? "dub" : "sub");
-            } else {
-              // If the selected source is invalid, try the other category
-              const fallbackCategory = category === "dub" ? "sub" : "dub";
-              const fallbackResponse = await fetch(
-                `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${fallbackCategory}&server=${selectedServer}`
-              );
-              const fallbackData = await fallbackResponse.json();
-              
-              if (fallbackData?.sources?.length > 0) {
-                const validFallbackSource = await validateVideoSource(fallbackData.sources[0].url);
-                if (validFallbackSource) {
-                  setVideoSrc(fallbackData.sources[0].url);
-                  setSubtitles(fallbackData.subtitles || []);
-                  setAudioType(fallbackCategory === "dub" ? "dub" : "sub");
-                  setCategory(fallbackCategory);
-                } else {
-                  throw new Error("No valid video sources available");
-                }
-              }
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.sources?.length) {
+              availableCats.push(cat);
             }
           }
-        } else {
-          // Only sub is available
-          const validSource = await validateVideoSource(subData.sources[0].url);
-          if (validSource) {
-            setVideoSrc(subData.sources[0].url);
-            setSubtitles(subData.subtitles || []);
-            setAudioType("sub");
-            setCategory("sub");
-          } else {
-            throw new Error("Invalid video source");
-          }
-        }
-      } else {
-        // Try raw if sub is not available
-        const rawResponse = await fetch(
-          `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=raw&server=${selectedServer}`
-        );
-        const rawData = await rawResponse.json();
-
-        if (rawData?.sources?.length > 0) {
-          const validSource = await validateVideoSource(rawData.sources[0].url);
-          if (validSource) {
-            setVideoSrc(rawData.sources[0].url);
-            setSubtitles(rawData.subtitles || []);
-            setAudioType("raw");
-            setCategory("raw");
-          } else {
-            throw new Error("Invalid video source");
-          }
-        } else {
-          throw new Error("No video sources available");
+        } catch (error) {
+          console.log(`Error checking ${cat} availability:`, error);
         }
       }
+      
+      setAvailableCategories(availableCats);
+      
+      // If raw is available, select it by default
+      if (availableCats.includes("raw")) {
+        setCategory("raw");
+      } else if (!availableCats.includes(category) && availableCats.length > 0) {
+        setCategory(availableCats[0]);
+      }
+      
+      // Fetch the selected category's source
+      const response = await fetch(
+        `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${category}&server=${selectedServer}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${category} source`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.sources?.length) {
+        throw new Error(`No video sources found for ${category}`);
+      }
+
+      // Set video source with all available data
+      const videoSource = {
+        url: data.sources[0].url,
+        type: data.sources[0].type || 'hls',
+        isM3U8: true,
+        intro: data.intro || data.sources[0].intro,
+        outro: data.outro || data.sources[0].outro,
+        subtitles: data.tracks?.filter((track: VideoTrack) => track.kind === "captions").map((track: VideoTrack) => ({
+        url: track.file,
+        language: track.label.toLowerCase(),
+        label: track.label,
+        default: track.default || track.label.toLowerCase().includes('english')
+        })) || [],
+        audio: category === 'raw' ? 'raw' : category === 'sub' ? 'jpn' : 'eng',
+        quality: data.sources[0].quality
+      };
+
+      setVideoSrc(videoSource);
+      setVideoTracks(data.tracks?.filter((track: VideoTrack) => track.kind !== "thumbnails") || []);
+      setSubtitles(data.tracks?.filter((track: VideoTrack) => track.kind === "captions").map((track: VideoTrack) => ({
+        url: track.file,
+        language: track.label.toLowerCase(),
+        label: track.label,
+        default: track.default || track.label.toLowerCase().includes('english')
+      })) || []);
+
     } catch (error) {
-      console.error("Error fetching video source:", error);
-      setError("Failed to load video. Please try a different server or episode.");
+      console.error('Error fetching video source:', error);
+      setError('Failed to load video source');
+      toast({
+        title: "Error",
+        description: "Failed to load video source. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Add a new function to validate video sources
-  const validateVideoSource = async (url: string): Promise<boolean> => {
-    try {
-      const response = await fetch(url);
-      const text = await response.text();
-      
-      // Check if it's a valid HLS playlist
-      if (text.includes("#EXTM3U")) {
-        // Check for required HLS tags
-        const hasTargetDuration = text.includes("#EXT-X-TARGETDURATION");
-        const hasMediaSequence = text.includes("#EXT-X-MEDIA-SEQUENCE");
-        
-        // If missing required tags, try to fix the playlist
-        if (!hasTargetDuration || !hasMediaSequence) {
-          console.warn("Invalid HLS playlist: Missing required tags, attempting to fix");
-          
-          // Add default values if missing
-          let fixedPlaylist = text;
-          if (!hasTargetDuration) {
-            fixedPlaylist = "#EXT-X-TARGETDURATION:10\n" + fixedPlaylist;
-          }
-          if (!hasMediaSequence) {
-            fixedPlaylist = "#EXT-X-MEDIA-SEQUENCE:0\n" + fixedPlaylist;
-          }
-          
-          // Try to validate the fixed playlist
-          return fixedPlaylist.includes("#EXT-X-TARGETDURATION") && 
-                 fixedPlaylist.includes("#EXT-X-MEDIA-SEQUENCE");
-        }
-        
-        return true;
-      }
-      
-      // If it's not an HLS stream, check if it's a direct video URL
-      return url.match(/\.(mp4|webm|m3u8)($|\?)/i) !== null;
-    } catch (error) {
-      console.error("Error validating video source:", error);
-      return false;
     }
   };
 
@@ -581,22 +547,7 @@ export default function WatchPage() {
                 maxBufferSize: 60 * 1000 * 1000,
                 maxBufferHole: 0.5,
                 lowLatencyMode: false,
-                debug: false,
-                // Add error recovery options
-                manifestLoadingTimeOut: 10000,
-                manifestLoadingMaxRetry: 3,
-                manifestLoadingRetryDelay: 1000,
-                levelLoadingTimeOut: 10000,
-                levelLoadingMaxRetry: 3,
-                levelLoadingRetryDelay: 1000,
-                fragLoadingTimeOut: 20000,
-                fragLoadingMaxRetry: 3,
-                fragLoadingRetryDelay: 1000,
-                // Add recovery options
-                enableWorker: true,
-                progressive: true,
-                lowLatencyMode: false,
-                backBufferLength: 90
+                debug: false
               })
               hls.loadSource(videoSrc.url)
               hls.attachMedia(video)
@@ -641,8 +592,8 @@ export default function WatchPage() {
         const progress = Math.floor((currentTime / duration) * 100)
         setVideoProgress(progress)
 
-        // Save to watch history more frequently for better "resume watching" experience
-        if (currentTime > 30 && currentEpisodeId) {
+        // Save to watch history
+        if (progress > 0 && currentEpisodeId) {
           const currentEpisodeObj = episodes.find((ep) => {
             const epIdParts = ep.episodeId.split("?ep=")
             const epId = epIdParts.length > 1 ? epIdParts[1] : epIdParts[0]
@@ -664,18 +615,13 @@ export default function WatchPage() {
       }
     }
 
-    // Update more frequently (every 3 seconds instead of 5)
-    const interval = setInterval(updateProgress, 3000)
+    // Update every 5 seconds and on timeupdate
+    const interval = setInterval(updateProgress, 5000)
     video.addEventListener("timeupdate", updateProgress)
-    
-    // Also save on pause to capture exact stopping point
-    const handlePause = () => updateProgress();
-    video.addEventListener("pause", handlePause);
 
     return () => {
       clearInterval(interval)
       video.removeEventListener("timeupdate", updateProgress)
-      video.removeEventListener("pause", handlePause)
     }
   }, [videoSrc, animeInfo, id, currentEpisodeId, episodes])
 
@@ -895,66 +841,58 @@ export default function WatchPage() {
       ],
       customType: {
         m3u8: function (video: HTMLVideoElement, url: string) {
+          // Dynamically import HLS.js
           import('hls.js').then(({ default: Hls }) => {
             if (Hls.isSupported()) {
               const hls = new Hls({
                 autoStartLoad: true,
-                startLevel: -1,
-                capLevelToPlayerSize: true,
+                startLevel: -1, // Auto quality by default
+                capLevelToPlayerSize: true, // Adapt quality to player size
                 maxBufferLength: 30,
                 maxMaxBufferLength: 600,
-                maxBufferSize: 60 * 1000 * 1000,
+                maxBufferSize: 60 * 1000 * 1000, // 60MB max buffer size
                 maxBufferHole: 0.5,
                 lowLatencyMode: false,
-                debug: false,
-                // Add error recovery options
-                manifestLoadingTimeOut: 10000,
-                manifestLoadingMaxRetry: 3,
-                manifestLoadingRetryDelay: 1000,
-                levelLoadingTimeOut: 10000,
-                levelLoadingMaxRetry: 3,
-                levelLoadingRetryDelay: 1000,
-                fragLoadingTimeOut: 20000,
-                fragLoadingMaxRetry: 3,
-                fragLoadingRetryDelay: 1000,
-                // Add recovery options
-                enableWorker: true,
-                progressive: true,
-                lowLatencyMode: false,
-                backBufferLength: 90
-              });
-              
-              // Add error handling
-              hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) {
-                  switch (data.type) {
-                    case Hls.ErrorTypes.NETWORK_ERROR:
-                      console.error("HLS network error:", data);
-                      // Try to recover network error
-                      hls.startLoad();
-                      break;
-                    case Hls.ErrorTypes.MEDIA_ERROR:
-                      console.error("HLS media error:", data);
-                      // Try to recover media error
-                      hls.recoverMediaError();
-                      break;
-                    default:
-                      console.error("Fatal HLS error:", data);
-                      // If recovery fails, try direct playback
-                      tryDirectVideoPlayback();
-                      break;
-                  }
-                }
+                debug: false
               });
               
               hls.loadSource(url);
               hls.attachMedia(video);
               hlsRef.current = hls;
+
+              // Handle quality levels after manifest is loaded
+              hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+                const qualities = data.levels.map(level => ({
+                  html: `${level.height}p`,
+                  value: level.url[0],
+                  bitrate: level.bitrate
+                }));
+
+                // Update quality options
+                const art = artRef.current;
+                if (art) {
+                  art.setting.update({
+                    html: 'Quality',
+                    selector: [
+                      { html: 'Auto', value: 'auto', default: true },
+                      ...qualities
+                    ],
+                  });
+                }
+
+                console.log('Available qualities:', qualities);
+              });
+              
+              // Clean up HLS on destroy
+              video.addEventListener('destroy', () => {
+                if (hlsRef.current) {
+                  hlsRef.current.destroy();
+                  hlsRef.current = null;
+                }
+              });
             }
           }).catch(err => {
             console.error("Failed to load HLS.js:", err);
-            // Fallback to direct playback
-            tryDirectVideoPlayback();
           });
         }
       }
