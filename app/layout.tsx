@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import Header from "@/components/header"
 import Sidebar from "@/components/sidebar"
+import Footer from "@/components/footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import "swiper/css"
 import "swiper/css/navigation"
@@ -42,6 +43,7 @@ export default function RootLayout({
               <Sidebar />
               <main className="flex-1 overflow-x-hidden scrollbar-hide">{children}</main>
             </div>
+            <Footer />
           </div>
         </ThemeProvider>
       </body>
