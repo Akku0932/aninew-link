@@ -100,23 +100,49 @@ export async function GET(request: NextRequest) {
             detectedContentType.includes('application/x-mpegurl') || 
             url.toLowerCase().includes('.m3u8')) {
             
-            console.log('Processing m3u8 file');
+            console.log('Processing m3u8 file from URL:', url);
             const text = await response.text();
             const baseUrl = new URL(url);
             baseUrl.search = ''; // Remove query params
             baseUrl.hash = '';   // Remove hash
             const baseUrlPath = baseUrl.href.substring(0, baseUrl.href.lastIndexOf('/') + 1);
             
-            console.log('Base URL for segments:', baseUrlPath);
+            // Add better error handling for empty or invalid playlists
+            if (!text || text.trim().length === 0) {
+                console.error('Empty m3u8 playlist received');
+                return new Response('Empty playlist received', { status: 400 });
+            }
+            
+            // Process alternative segment format indication (sometimes servers use custom extensions)
+            let modifiedText = text;
+            
+            // Check if the playlist uses non-standard extensions for TS segments
+            // Common examples: .ts?someparam=value, .m4s, .segment, etc.
+            const segmentExtensions = ['.ts', '.m4s', '.aac', '.m4a', '.mp4', '.m4v', '.segment'];
+            const hasKnownSegmentTypes = segmentExtensions.some(ext => text.includes(ext));
+            
+            // If this is a segment playlist with no recognized segment types, try to detect segments
+            if (!hasKnownSegmentTypes && !text.includes('#EXT-X-STREAM-INF')) {
+                console.log('No standard segments detected, attempting to identify segment format');
+                
+                // Look for segment lines (non-comment lines) and add .ts extension if missing
+                modifiedText = modifiedText.replace(/^(?!#)([^\r\n]+)$/gm, (match) => {
+                    // Skip if it already has a known extension
+                    if (segmentExtensions.some(ext => match.includes(ext))) {
+                        return match;
+                    }
+                    console.log('Adding .ts extension to segment:', match);
+                    return match + '.ts';
+                });
+            }
             
             // Validate the playlist
-            const lines = text.split(/\r?\n/);
+            const lines = modifiedText.split(/\r?\n/);
             let hasExtM3U = false;
             let hasTargetDuration = false;
             let hasExtInf = false;
             let hasMasterTags = false;
             let isMasterPlaylist = false;
-            let modifiedText = text;
             
             // Check for required HLS tags
             for (const line of lines) {
@@ -223,7 +249,7 @@ export async function GET(request: NextRequest) {
 
         // Handle video segments (ts files) - use streaming and cache them
         if (url.toLowerCase().includes('.ts') || detectedContentType.includes('video/mp2t')) {
-            console.log('Streaming TS segment');
+            console.log('Processing TS segment from URL:', url);
             
             // For TS segments, we need to ensure they're properly formatted
             // Get the binary data first
@@ -232,24 +258,49 @@ export async function GET(request: NextRequest) {
             // Verify this is actually a valid TS segment (should start with specific sync byte)
             // TS segments should start with 0x47 (71 in decimal, 'G' in ASCII)
             const firstByte = new Uint8Array(buffer)[0];
-            if (firstByte !== 0x47) {
-                console.warn('TS segment does not start with sync byte 0x47, may be corrupt or wrong format');
-                console.log('First byte:', firstByte);
+            const isValidTSSegment = firstByte === 0x47;
+            
+            console.log('TS segment analysis:', {
+                size: buffer.byteLength,
+                firstByte: firstByte,
+                isValidTSSegment,
+                contentType: detectedContentType
+            });
+            
+            if (!isValidTSSegment) {
+                console.warn('Invalid TS segment detected, attempting repair');
                 
-                // Try to handle it anyway, add cache headers for better performance
-                responseHeaders.set('Cache-Control', 'public, max-age=31536000');
-                // Force content type to avoid demuxer errors
+                // If it's not a valid TS segment but supposed to be one,
+                // try to determine if it's a different format
+                const fourCCBytes = buffer.byteLength > 8 ? new Uint8Array(buffer, 0, 8) : new Uint8Array(buffer);
+                const fourCCString = Array.from(fourCCBytes)
+                    .map(byte => String.fromCharCode(byte))
+                    .join('');
+                    
+                console.log('Potential format signature:', fourCCString);
+                
+                // Check for MP4 signature (ftyp...)
+                if (fourCCString.includes('ftyp')) {
+                    console.log('Detected MP4 container instead of TS, adjusting content type');
+                    responseHeaders.set('Content-Type', 'video/mp4');
+                } 
+                // Check for WebM signature (it usually starts with 0x1A 0x45 0xDF 0xA3)
+                else if (fourCCBytes[0] === 0x1A && fourCCBytes[1] === 0x45 && fourCCBytes[2] === 0xDF && fourCCBytes[3] === 0xA3) {
+                    console.log('Detected WebM container instead of TS, adjusting content type');
+                    responseHeaders.set('Content-Type', 'video/webm');
+                } 
+                // Fallback - force the content type to be mp2t anyway
+                else {
+                    console.log('Unknown format, forcing video/mp2t content type');
+                    responseHeaders.set('Content-Type', 'video/mp2t');
+                }
+            } else {
+                // It's a valid TS segment - ensure proper content type
                 responseHeaders.set('Content-Type', 'video/mp2t');
-                
-                return new NextResponse(buffer, {
-                    headers: responseHeaders
-                });
             }
             
-            // If it's a valid TS segment, add cache headers for better performance
+            // Add caching headers for better performance regardless of format
             responseHeaders.set('Cache-Control', 'public, max-age=31536000');
-            // Ensure proper content type
-            responseHeaders.set('Content-Type', 'video/mp2t');
             
             return new NextResponse(buffer, {
                 headers: responseHeaders

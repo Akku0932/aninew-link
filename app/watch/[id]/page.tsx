@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -1109,12 +1109,13 @@ export default function WatchPage() {
               artRef.current = art;
               playerRef.current = art;
 
-              // Find saved progress for this episode
-              const savedProgress = watchProgress.find(p => 
-                p.animeId === id && p.episodeId === currentEpisodeId
-              );
-              
-              // Set up time update listener for skip detection
+              // Find saved progress for this episode again to ensure latest data
+              const latestSavedProgress = JSON.parse(localStorage.getItem('watchProgress') || '[]')
+                .find((p: WatchProgress) => p.animeId === id && p.episodeId === currentEpisodeId);
+                
+              console.log('Saved progress found:', latestSavedProgress);
+
+              // Set up time update listener for skip detection and progress saving
               art.on('video:timeupdate', () => {
                 if (!videoSrc) return;
                 
@@ -1180,12 +1181,6 @@ export default function WatchPage() {
               art.on('ready', () => {
                 console.log('ArtPlayer ready event fired');
                 
-                // Find saved progress for this episode again to ensure latest data
-                const latestSavedProgress = JSON.parse(localStorage.getItem('watchProgress') || '[]')
-                  .find((p: WatchProgress) => p.animeId === id && p.episodeId === currentEpisodeId);
-                
-                console.log('Saved progress found:', latestSavedProgress);
-                
                 // Restore position if found and greater than 5 seconds
                 if (latestSavedProgress && latestSavedProgress.timestamp > 5) {
                   console.log('Attempting to restore position to:', latestSavedProgress.timestamp);
@@ -1208,52 +1203,28 @@ export default function WatchPage() {
                 }
               });
 
-              // Set up ended event for auto-next
-              art.on('video:ended', () => {
-                console.log('Video ended, checking for next episode');
-                if (autoNext) {
-                  const nextEp = episodes.find(ep => ep.number === currentEpisodeNumber + 1);
-                  if (nextEp) {
-                    console.log('Found next episode:', nextEp);
-                    const nextEpId = nextEp.episodeId.split('?ep=')[1];
-                    setCurrentEpisodeId(nextEpId);
-                    router.push(`/watch/${id}?ep=${nextEpId}`);
-                    toast({
-                      title: "Next Episode",
-                      description: `Playing episode ${nextEp.number}`,
-                      duration: 3000,
-                    });
-                  } else {
-                    console.log('No next episode found');
-                    toast({
-                      title: "Last Episode",
-                      description: "No more episodes available",
-                      variant: "destructive",
-                      duration: 3000,
-                    });
-                  }
-                }
-              });
-
               // Error handling for video element
               art.on('error', () => {
-                console.error('Video element error');
-                toast({
-                  title: "Playback Error",
-                  description: "Failed to play this video. Please try a different server.",
-                  variant: "destructive",
-                  duration: 5000,
-                });
+                console.error('Video element error, attempting to use fallback server');
+                tryFallbackServer();
               });
 
-              // Initialize subtitles if available
-              if (videoSrc.subtitles?.length) {
-                const defaultSub = videoSrc.subtitles.find(sub => 
-                  sub.language.toLowerCase() === 'english'
-                ) || videoSrc.subtitles[0];
-                art.subtitle.switch(defaultSub.url);
-                art.subtitle.show = true;
-              }
+              // Add general error handler for any playback issues
+              let errorCount = 0;
+              const MAX_ERROR_COUNT = 3;
+              
+              const handleError = () => {
+                console.error('Detected player error');
+                errorCount++;
+                
+                if (errorCount >= MAX_ERROR_COUNT) {
+                  console.log(`Reached max error count (${MAX_ERROR_COUNT}), trying fallback server`);
+                  tryFallbackServer();
+                }
+              };
+              
+              // Attach to standard error event
+              art.template.$video.addEventListener('error', handleError);
 
               // Clean up event listeners
               return () => {
@@ -1261,6 +1232,7 @@ export default function WatchPage() {
                 art.off('video:ended');
                 art.off('ready');
                 art.off('error');
+                art.template.$video.removeEventListener('error', handleError);
               };
             }}
             className={lightsOff ? "lights-on-player" : ""}
@@ -1555,6 +1527,133 @@ export default function WatchPage() {
   );
   
   const totalPages = Math.ceil(filteredEpisodes.length / episodesPerPage);
+
+  // Helper to try different servers when the current one fails
+  const tryFallbackServer = useCallback(async () => {
+    if (!id || !currentEpisodeId) return;
+    
+    console.log('Current server failed, trying fallback server...');
+    // List of servers to try in fallback order
+    const serverOptions = ['vidcloud', 'vidstreaming', 'zoro', 'kiwi', 'arc'];
+    
+    // Get index of current server
+    const currentIndex = serverOptions.indexOf(selectedServer);
+    
+    // Try servers after the current one first
+    for (let i = 0; i < serverOptions.length; i++) {
+      // Skip the current server which already failed
+      if (i === currentIndex) continue;
+      
+      const nextServer = serverOptions[i] as "vidcloud" | "vidstreaming" | "zoro" | "kiwi" | "arc";
+      console.log(`Trying server ${nextServer}...`);
+      
+      try {
+        setIsLoading(true);
+        const response = await fetch(`https://aninew-seven.vercel.app/watch-sources/${id}?ep=${currentEpisodeId}&server=${nextServer}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.sources && data.sources.length > 0) {
+            console.log(`Server ${nextServer} available, switching...`);
+            
+            // Update selected server
+            setSelectedServer(nextServer);
+            localStorage.setItem('selectedServer', nextServer);
+            
+            // Set new video source
+            const source = data.sources[0];
+            setVideoSrc({
+              url: source.url,
+              type: source.isM3U8 ? 'hls' : 'mp4',
+              isM3U8: source.isM3U8,
+              intro: data.intro,
+              outro: data.outro,
+              subtitles: data.subtitles || [],
+              audio: data.audio || 'jpn',
+              quality: source.quality
+            });
+            
+            toast({
+              title: "Server Changed",
+              description: `Switched to ${nextServer.toUpperCase()} server`,
+              duration: 3000,
+            });
+            
+            setIsLoading(false);
+            return true;
+          }
+        }
+      } catch (error) {
+        console.error(`Error trying server ${nextServer}:`, error);
+      }
+    }
+    
+    // If all servers failed
+    setIsLoading(false);
+    toast({
+      title: "Playback Error",
+      description: "All servers failed. Please try a different episode or anime.",
+      variant: "destructive",
+      duration: 5000,
+    });
+    
+    return false;
+  }, [id, currentEpisodeId, selectedServer]);
+
+  // Handle server selection
+  const handleServerChange = async (server: "vidcloud" | "vidstreaming" | "zoro" | "kiwi" | "arc") => {
+    if (server === selectedServer) return;
+    
+    setSelectedServer(server);
+    localStorage.setItem('selectedServer', server);
+    
+    if (!id || !currentEpisodeId) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch(`https://aninew-seven.vercel.app/watch-sources/${id}?ep=${currentEpisodeId}&server=${server}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch video source from ${server} server`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data || !data.sources || data.sources.length === 0) {
+        throw new Error(`No sources available from ${server} server`);
+      }
+      
+      const source = data.sources[0];
+      setVideoSrc({
+        url: source.url,
+        isM3U8: source.isM3U8,
+        intro: data.intro,
+        outro: data.outro,
+        subtitles: data.subtitles,
+        audio: data.audio,
+        type: source.isM3U8 ? 'hls' : 'mp4'
+      });
+      
+      toast({
+        title: "Server Changed",
+        description: `Switched to ${server.toUpperCase()} server`,
+        duration: 3000,
+      });
+    } catch (err) {
+      console.error("Error changing server:", err);
+      toast({
+        title: "Server Error",
+        description: `Failed to load from ${server.toUpperCase()} server. Trying another server...`,
+        variant: "destructive",
+        duration: 3000,
+      });
+      
+      // Try another server automatically
+      tryFallbackServer();
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading && !animeInfo) {
     return (

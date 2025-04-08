@@ -226,43 +226,141 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                                 // Try to recover by letting HLS.js handle it internally first
                                 if (!hasAttemptedFallback && data.frag) {
                                     console.log('Attempting to recover from fragment parsing error');
-                                    
-                                    // Try to destroy and recreate HLS after a short delay
-                                    setTimeout(() => {
-                                        if (hls) {
-                                            console.log('Reloading HLS instance for recovery');
-                                            hls.destroy();
-                                            
-                                            // Create new HLS instance with a different config
-                                            const newHls = new Hls({
-                                                enableWorker: false,
-                                                lowLatencyMode: false,
-                                                startLevel: 0, // Force lowest quality for better compatibility
-                                            });
-                                            
-                                            newHls.loadSource(originalUrl);
-                                            newHls.attachMedia(video);
-                                            hls = newHls;
-                                        }
-                                    }, 1000);
-                                    
-                                    // Mark that we've tried this approach
                                     hasAttemptedFallback = true;
+                                    
+                                    // Try to directly access alternative formats based on the URL
+                                    const tryAlternativeFormat = () => {
+                                        // Extract the base URL
+                                        let directUrl = originalUrl;
+                                        try {
+                                            if (originalUrl.includes('/api/proxy?url=')) {
+                                                const urlParam = new URLSearchParams(originalUrl.split('/api/proxy?')[1]).get('url');
+                                                if (urlParam) directUrl = decodeURIComponent(urlParam);
+                                            }
+                                        } catch (e) {
+                                            console.error('Error extracting URL:', e);
+                                        }
+                                        
+                                        // Try different format patterns
+                                        // Sometimes .m3u8 can be replaced with direct segment path patterns
+                                        const possibleFormats = [
+                                            // Direct segment access bypassing playlist
+                                            directUrl.replace(/\/(playlist|master|index)\.m3u8/, '/index-v1-a1.m3u8'),
+                                            directUrl.replace(/\/(playlist|master|index)\.m3u8/, '/segments/1.ts'),
+                                            directUrl.replace(/\/(playlist|master|index)\.m3u8/, '/media_0.ts'),
+                                            directUrl.replace(/\.m3u8/, '.mp4'),
+                                            directUrl.replace(/\.m3u8/, '.webm'),
+                                            // Modify quality/resolution in URL
+                                            directUrl.replace(/\/[0-9]+p\//, '/480p/'),
+                                        ];
+                                        
+                                        // Also try removing URL parameters
+                                        const urlWithoutParams = directUrl.split('?')[0];
+                                        if (urlWithoutParams !== directUrl) {
+                                            possibleFormats.push(urlWithoutParams);
+                                        }
+                                        
+                                        console.log('Trying alternative formats:', possibleFormats);
+                                        
+                                        // Try each alternative format
+                                        const tryNextFormat = (index = 0) => {
+                                            if (index >= possibleFormats.length) {
+                                                console.log('All alternative formats failed, falling back to emergency player');
+                                                switchToEmergencyPlayer(directUrl);
+                                                return;
+                                            }
+                                            
+                                            const formatUrl = possibleFormats[index];
+                                            console.log(`Trying format ${index+1}/${possibleFormats.length}:`, formatUrl);
+                                            
+                                            // Proxy the URL if it's external
+                                            const proxyUrl = formatUrl.startsWith('http') 
+                                                ? `/api/proxy?url=${encodeURIComponent(formatUrl)}`
+                                                : formatUrl;
+                                            
+                                            // Use fetch to check if this URL is valid
+                                            fetch(proxyUrl, { method: 'HEAD' })
+                                                .then(response => {
+                                                    if (response.ok) {
+                                                        console.log('Alternative format available:', formatUrl);
+                                                        
+                                                        // Format appears valid, try to use it
+                                                        if (formatUrl.endsWith('.m3u8')) {
+                                                            // Try new HLS instance with this URL
+                                                            if (hls) hls.destroy();
+                                                            
+                                                            const newHls = new Hls({
+                                                                enableWorker: false,
+                                                                lowLatencyMode: false,
+                                                                startLevel: 0,
+                                                                fragLoadingMaxRetry: 2,
+                                                                manifestLoadingMaxRetry: 2,
+                                                            });
+                                                            
+                                                            newHls.loadSource(proxyUrl);
+                                                            newHls.attachMedia(video);
+                                                            hls = newHls;
+                                                        } else {
+                                                            // For non-m3u8 formats, try direct playback
+                                                            if (hls) {
+                                                                hls.destroy();
+                                                                hls = null;
+                                                            }
+                                                            
+                                                            video.src = proxyUrl;
+                                                            video.play().catch(e => {
+                                                                console.error('Alternative format playback failed:', e);
+                                                                tryNextFormat(index + 1);
+                                                            });
+                                                        }
+                                                    } else {
+                                                        console.log('Alternative format not available:', formatUrl);
+                                                        tryNextFormat(index + 1);
+                                                    }
+                                                })
+                                                .catch(error => {
+                                                    console.error('Error checking alternative format:', error);
+                                                    tryNextFormat(index + 1);
+                                                });
+                                        };
+                                        
+                                        // Start trying formats
+                                        tryNextFormat();
+                                    };
+                                    
+                                    // Create emergency direct player as a last resort
+                                    const switchToEmergencyPlayer = (directUrl: string) => {
+                                        console.log('Creating emergency direct player');
+                                        
+                                        // Clean up existing player
+                                        if (hls) {
+                                            hls.destroy();
+                                            hls = null;
+                                        }
+                                        
+                                        // Create a simple video element to replace the current player
+                                        if (video) {
+                                            // Attempt to play through our proxy
+                                            const fallbackUrl = directUrl.startsWith('http')
+                                                ? `/api/proxy?url=${encodeURIComponent(directUrl)}`
+                                                : directUrl;
+                                                
+                                            video.src = fallbackUrl;
+                                            video.load();
+                                            
+                                            // Try to play
+                                            video.play().catch(e => {
+                                                console.error('Emergency player failed:', e);
+                                                art.notice.show = 'Unable to play this video. Please try a different server.';
+                                            });
+                                        }
+                                    };
+                                    
+                                    // Start the fallback process
+                                    tryAlternativeFormat();
                                     return;
                                 }
                                 
-                                // If recovery didn't work, try MP4
-                                if (hasAttemptedFallback) {
-                                    console.log('Trying MP4 fallback due to demuxer issues');
-                                    let mp4Url = originalUrl.replace('.m3u8', '.mp4');
-                                    video.src = mp4Url;
-                                    video.load();
-                                    video.play().catch(e => {
-                                        console.error('MP4 fallback failed:', e);
-                                        // Show error to user
-                                        art.notice.show = 'Video format issues. Please try a different server.';
-                                    });
-                                }
                                 return;
                             }
                             
