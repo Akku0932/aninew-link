@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MdOutlineLogin } from "react-icons/md";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -26,7 +25,18 @@ export default function LoginPage() {
         <Card className="border-2 border-gray-800 bg-gradient-to-b from-gray-900 to-black">
           <CardHeader className="space-y-1 text-center">
             <div className="mb-3 flex justify-center">
-              <MdOutlineLogin className="h-9 w-9 text-blue-500" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-9 w-9 text-blue-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" />
+              </svg>
             </div>
             <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
             <CardDescription className="text-gray-400">
