@@ -9,9 +9,10 @@ interface LogoProps {
   size?: "small" | "medium" | "large";
   animated?: boolean;
   className?: string;
+  withLink?: boolean;
 }
 
-export default function Logo({ size = "medium", animated = true, className }: LogoProps) {
+export default function Logo({ size = "medium", animated = true, className, withLink = true }: LogoProps) {
   const [gradientPos, setGradientPos] = useState(0);
 
   useEffect(() => {
@@ -42,24 +43,42 @@ export default function Logo({ size = "medium", animated = true, className }: Lo
     color: animated ? "transparent" : "initial"
   };
 
+  const logoContent = (
+    <span 
+      style={animated ? gradientStyle : {}}
+      className={animated ? "" : "text-blue-500 dark:text-blue-400"}
+    >
+      Ani
+      <span className={animated ? "" : "text-pink-500 dark:text-pink-400"}>
+        new
+      </span>
+    </span>
+  );
+
+  if (withLink) {
+    return (
+      <Link 
+        href="/" 
+        className={cn(
+          "font-bold tracking-tighter transition-all duration-200 hover:scale-105",
+          sizeClasses[size],
+          className
+        )}
+      >
+        {logoContent}
+      </Link>
+    );
+  }
+
   return (
-    <Link 
-      href="/" 
+    <span 
       className={cn(
-        "font-bold tracking-tighter transition-all duration-200 hover:scale-105",
+        "font-bold tracking-tighter",
         sizeClasses[size],
         className
       )}
     >
-      <span 
-        style={animated ? gradientStyle : {}}
-        className={animated ? "" : "text-blue-500 dark:text-blue-400"}
-      >
-        ani
-        <span className={animated ? "" : "text-pink-500 dark:text-pink-400"}>
-          new
-        </span>
-      </span>
-    </Link>
+      {logoContent}
+    </span>
   );
 } 

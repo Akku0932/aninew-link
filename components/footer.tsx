@@ -91,7 +91,7 @@ export function Footer() {
           {/* About & Logo Section */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Logo size="md" animated={true} />
+              <Logo size="medium" animated={true} />
             </div>
             <p className="text-sm text-muted-foreground max-w-xs">
               Your premier destination for watching anime online with a vast collection of subtitled and dubbed content.
@@ -210,7 +210,7 @@ export function Footer() {
         {/* Bottom section with copyright and additional links */}
         <div className="flex flex-col md:flex-row justify-between items-center mt-10 pt-6 border-t">
           <p className="text-xs text-muted-foreground">
-            © {currentYear} ANINEW. All rights reserved.
+            © {currentYear} Aninew. All rights reserved.
           </p>
           <div className="flex items-center space-x-1 mt-4 md:mt-0">
             <span className="text-xs text-muted-foreground">Made with</span>

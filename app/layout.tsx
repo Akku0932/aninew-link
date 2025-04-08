@@ -9,6 +9,7 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 import Script from "next/script";
 import { AuthProvider } from "@/context/auth-context";
+import { Footer } from "@/components/footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,6 +33,35 @@ export default function RootLayout({
           crossOrigin="anonymous"
           referrerPolicy="no-referrer"
         />
+        <style>
+          {`
+            /* Custom scrollbar styles */
+            ::-webkit-scrollbar {
+              width: 8px;
+              height: 8px;
+            }
+            
+            ::-webkit-scrollbar-track {
+              background: rgba(0, 0, 0, 0.1);
+              border-radius: 4px;
+            }
+            
+            ::-webkit-scrollbar-thumb {
+              background: #e11d48;
+              border-radius: 4px;
+            }
+            
+            ::-webkit-scrollbar-thumb:hover {
+              background: #f43f5e;
+            }
+            
+            /* Firefox scrollbar */
+            * {
+              scrollbar-width: thin;
+              scrollbar-color: #e11d48 rgba(0, 0, 0, 0.1);
+            }
+          `}
+        </style>
       </head>
       <body className={`${inter.className} dark:bg-black dark:text-white bg-white text-black transition-colors duration-300`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
@@ -40,8 +70,9 @@ export default function RootLayout({
               <Header />
               <div className="flex flex-1 flex-col md:flex-row">
                 <Sidebar />
-                <main className="flex-1 overflow-x-hidden scrollbar-hide">{children}</main>
+                <main className="flex-1 overflow-x-hidden">{children}</main>
               </div>
+              <Footer />
             </div>
           </AuthProvider>
         </ThemeProvider>
@@ -49,7 +80,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-
-
-import './globals.css'

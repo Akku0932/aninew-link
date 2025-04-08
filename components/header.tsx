@@ -135,7 +135,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-black transition-colors duration-300 px-4 md:px-6">
       <div className="flex items-center">
         <Link href="/" className="mr-6 flex items-center">
-          <Logo size="small" />
+          <Logo size="small" withLink={false} />
         </Link>
       </div>
 
