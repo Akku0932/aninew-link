@@ -109,9 +109,37 @@ export async function GET(request: NextRequest) {
             
             console.log('Base URL for segments:', baseUrlPath);
             
+            // Validate the playlist
+            const lines = text.split(/\r?\n/);
+            let hasExtM3U = false;
+            let hasTargetDuration = false;
+            let modifiedText = text;
+            
+            // Check for required HLS tags
+            for (const line of lines) {
+                if (line.includes('#EXTM3U')) {
+                    hasExtM3U = true;
+                }
+                if (line.includes('#EXT-X-TARGETDURATION')) {
+                    hasTargetDuration = true;
+                }
+            }
+            
+            // Fix common issues with the playlist
+            if (!hasExtM3U) {
+                console.log('Adding missing #EXTM3U tag');
+                modifiedText = '#EXTM3U\n' + modifiedText;
+            }
+            
+            if (!hasTargetDuration) {
+                console.log('Adding missing #EXT-X-TARGETDURATION tag');
+                // Add a reasonable target duration if missing (10 seconds is common)
+                modifiedText = modifiedText.replace('#EXTM3U', '#EXTM3U\n#EXT-X-TARGETDURATION:10');
+            }
+            
             // Replace relative URLs with proxied absolute ones
             // This regex matches non-comment, non-absolute URL lines in the m3u8 file
-            const modifiedText = text.replace(/^(?!#)(?!https?:\/\/)([^#][^\r\n]*)/gm, (match) => {
+            modifiedText = modifiedText.replace(/^(?!#)(?!https?:\/\/)([^#][^\r\n]*)/gm, (match) => {
                 try {
                     // Convert relative URL to absolute
                     const absoluteUrl = new URL(match, baseUrlPath).href;
@@ -125,6 +153,18 @@ export async function GET(request: NextRequest) {
                 }
             });
             
+            // Also rewrite absolute URLs in the file to use our proxy
+            modifiedText = modifiedText.replace(/(https?:\/\/[^\s"']+\.ts)/g, (match) => {
+                console.log('Rewriting absolute TS URL:', match);
+                return `/api/proxy?url=${encodeURIComponent(match)}`;
+            });
+            
+            // Make sure the playlist ends with a blank line (HLS spec requirement)
+            if (!modifiedText.endsWith('\n')) {
+                modifiedText += '\n';
+            }
+            
+            console.log('Processed m3u8 playlist. Length:', modifiedText.length);
             return new NextResponse(modifiedText, { 
                 headers: responseHeaders
             });

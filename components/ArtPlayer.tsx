@@ -81,10 +81,23 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                             // Better error recovery
                             fragLoadingMaxRetry: 5,
                             manifestLoadingMaxRetry: 4,
-                            // Debug
+                            levelLoadingMaxRetry: 4,       // Add retry for level loading
+                            // Add timeouts and delays
+                            manifestLoadingTimeOut: 20000,  // 20 seconds
+                            levelLoadingTimeOut: 20000,     // 20 seconds
+                            fragLoadingTimeOut: 20000,      // 20 seconds
+                            // Add retry delays
+                            manifestLoadingRetryDelay: 1000,
+                            levelLoadingRetryDelay: 1000,
+                            fragLoadingRetryDelay: 1000,
+                            // Disable debugging to improve performance
                             debug: false
                         });
 
+                        // Store original URL for fallbacks
+                        const originalUrl = url;
+                        let hasAttemptedFallback = false;
+                        
                         // Handle HLS loading with CORS protection
                         console.log('Loading HLS source:', url);
                         hls.loadSource(url);
@@ -112,6 +125,45 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                             if (!data) return;
                             
                             console.error('HLS error:', data.type, data.details, data);
+                            
+                            // Special handling for playlist parsing errors
+                            if (data.details === 'manifestParsingError' || data.details === 'levelParsingError') {
+                                console.error('Playlist parsing error:', data.error?.message || 'Unknown parsing error');
+                                
+                                if (!hasAttemptedFallback) {
+                                    hasAttemptedFallback = true;
+                                    console.log('Attempting to use fallback direct source');
+                                    
+                                    // Destroy the current HLS instance
+                                    if (hls) {
+                                        hls.destroy();
+                                    }
+                                    
+                                    // Try with direct video element
+                                    // This handles cases where the server doesn't properly format m3u8 files
+                                    console.log('Falling back to direct video source:', originalUrl);
+                                    
+                                    // Some browsers can play HLS natively
+                                    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                        video.src = originalUrl;
+                                        video.addEventListener('loadedmetadata', () => {
+                                            video.play().catch(e => console.error('Playback failed:', e));
+                                        });
+                                    } else {
+                                        // Try to load an MP4 version if available
+                                        let mp4Url = originalUrl.replace('.m3u8', '.mp4');
+                                        console.log('Attempting to load MP4 version:', mp4Url);
+                                        video.src = mp4Url;
+                                        video.load();
+                                        video.play().catch(e => {
+                                            console.error('MP4 fallback failed:', e);
+                                            // Show error to user
+                                            art.notice.show = 'Video playback error. Please try a different server.';
+                                        });
+                                    }
+                                    return;
+                                }
+                            }
                             
                             // Handle media errors specifically - these are the most common in playback
                             if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
@@ -146,11 +198,13 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                                         setTimeout(() => {
                                             try {
                                                 // Reload the video with native playback as fallback
-                                                video.src = url;
+                                                video.src = originalUrl;
                                                 video.load();
                                                 video.play().catch(e => console.log('Playback failed', e));
                                             } catch (e) {
                                                 console.error('Final recovery attempt failed', e);
+                                                // Show error to user
+                                                art.notice.show = 'Video playback error. Please try a different server.';
                                             }
                                         }, 2000);
                                     }
@@ -171,7 +225,10 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                                         // Try to fallback to native video if possible
                                         if (video.canPlayType('application/vnd.apple.mpegurl')) {
                                             console.log('Attempting fallback to native HLS playback');
-                                            video.src = url;
+                                            video.src = originalUrl;
+                                        } else {
+                                            // Show error to user
+                                            art.notice.show = 'Video playback error. Please try a different server.';
                                         }
                                         break;
                                 }
