@@ -101,16 +101,13 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                         // Store original URL for fallbacks
                         const originalUrl = url;
                         let hasAttemptedFallback = false;
+                        let hasAttemptedDirectPlay = false;
                         
                         // Handle HLS loading with CORS protection
                         console.log('Loading HLS source:', url);
                         hls.loadSource(url);
                         hls.attachMedia(video);
                         
-                        // Handle buffer issues
-                        let mediaErrorRecoveryAttempts = 0;
-                        const MAX_MEDIA_ERROR_RECOVERY_ATTEMPTS = 5;
-
                         // Handle specific events
                         hls.on(Hls.Events.MANIFEST_PARSED, () => {
                             console.log('HLS manifest parsed successfully');
@@ -124,11 +121,103 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                             console.log('Loading fragment:', data.frag?.url);
                         });
 
+                        // Variables for error recovery
+                        let mediaErrorRecoveryAttempts = 0;
+                        const MAX_MEDIA_ERROR_RECOVERY_ATTEMPTS = 5;
+
                         // Add error handling with better recovery
                         hls.on(Hls.Events.ERROR, function(event, data) {
                             if (!data) return;
                             
                             console.error('HLS error:', data.type, data.details, data);
+                            
+                            // Check if this is a playlist parsing error
+                            if (data.details === 'manifestParsingError' || data.details === 'levelParsingError') {
+                                console.error('Playlist parsing error:', data.error?.message || 'Unknown parsing error');
+                                
+                                if (!hasAttemptedDirectPlay) {
+                                    console.log('Attempting direct playback without HLS.js');
+                                    hasAttemptedDirectPlay = true;
+                                    
+                                    // Try with a different approach - go straight to a direct URL
+                                    // Step 1: Extract the actual direct URL from our proxy
+                                    let directUrl = originalUrl;
+                                    try {
+                                        // If URL is proxied, extract the original URL
+                                        if (originalUrl.includes('/api/proxy?url=')) {
+                                            const urlParam = new URLSearchParams(originalUrl.split('/api/proxy?')[1]).get('url');
+                                            if (urlParam) {
+                                                directUrl = decodeURIComponent(urlParam);
+                                                console.log('Extracted direct URL from proxy:', directUrl);
+                                            }
+                                        }
+                                    } catch (e) {
+                                        console.error('Error extracting direct URL:', e);
+                                    }
+                                    
+                                    // Step 2: Find specific direct stream URL without using m3u8 master
+                                    // This is a common pattern in HLS streams - just fix the URL
+                                    if (directUrl.includes('master.m3u8')) {
+                                        // Try index-v1-a1.m3u8 pattern which is common
+                                        const alternateUrl = directUrl.replace('master.m3u8', 'index-v1-a1.m3u8');
+                                        console.log('Trying alternate direct stream URL:', alternateUrl);
+                                        
+                                        const proxyAlternateUrl = `/api/proxy?url=${encodeURIComponent(alternateUrl)}`;
+                                        
+                                        if (hls) {
+                                            hls.destroy();
+                                        }
+                                        
+                                        // Try the alternate URL directly
+                                        const newHls = new Hls({
+                                            enableWorker: false, 
+                                            lowLatencyMode: false,
+                                            debug: false
+                                        });
+                                        
+                                        newHls.loadSource(proxyAlternateUrl);
+                                        newHls.attachMedia(video);
+                                        hls = newHls;
+                                        
+                                        return;
+                                    }
+                                    
+                                    // Step 3: If alternate URLs didn't work, try native playback
+                                    if (hasAttemptedDirectPlay && !hasAttemptedFallback) {
+                                        hasAttemptedFallback = true;
+                                        
+                                        // Destroy current HLS instance
+                                        if (hls) {
+                                            hls.destroy();
+                                            hls = null;
+                                        }
+                                        
+                                        // Some browsers can play HLS natively
+                                        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                            video.src = originalUrl;
+                                            video.addEventListener('loadedmetadata', () => {
+                                                video.play().catch(e => console.error('Playback failed:', e));
+                                            });
+                                        } else {
+                                            // Try to load an MP4 version if available
+                                            let mp4Url = directUrl.replace(/\.(m3u8|m3u)/, '.mp4');
+                                            if (mp4Url !== directUrl) {
+                                                mp4Url = `/api/proxy?url=${encodeURIComponent(mp4Url)}`;
+                                                console.log('Attempting to load MP4 version:', mp4Url);
+                                                video.src = mp4Url;
+                                                video.load();
+                                                video.play().catch(e => {
+                                                    console.error('MP4 fallback failed:', e);
+                                                    art.notice.show = 'Video playback error. Please try a different server.';
+                                                });
+                                            } else {
+                                                art.notice.show = 'HLS stream not supported in this browser.';
+                                            }
+                                        }
+                                    }
+                                    return;
+                                }
+                            }
                             
                             // Demuxer errors require special handling
                             if (data.details === 'fragParsingError') {
@@ -177,47 +266,10 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                                 return;
                             }
                             
-                            // Special handling for playlist parsing errors
-                            if (data.details === 'manifestParsingError' || data.details === 'levelParsingError') {
-                                console.error('Playlist parsing error:', data.error?.message || 'Unknown parsing error');
-                                
-                                if (!hasAttemptedFallback) {
-                                    hasAttemptedFallback = true;
-                                    console.log('Attempting to use fallback direct source');
-                                    
-                                    // Destroy the current HLS instance
-                                    if (hls) {
-                                        hls.destroy();
-                                    }
-                                    
-                                    // Try with direct video element
-                                    // This handles cases where the server doesn't properly format m3u8 files
-                                    console.log('Falling back to direct video source:', originalUrl);
-                                    
-                                    // Some browsers can play HLS natively
-                                    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                                        video.src = originalUrl;
-                                        video.addEventListener('loadedmetadata', () => {
-                                            video.play().catch(e => console.error('Playback failed:', e));
-                                        });
-                                    } else {
-                                        // Try to load an MP4 version if available
-                                        let mp4Url = originalUrl.replace('.m3u8', '.mp4');
-                                        console.log('Attempting to load MP4 version:', mp4Url);
-                                        video.src = mp4Url;
-                                        video.load();
-                                        video.play().catch(e => {
-                                            console.error('MP4 fallback failed:', e);
-                                            // Show error to user
-                                            art.notice.show = 'Video playback error. Please try a different server.';
-                                        });
-                                    }
-                                    return;
-                                }
-                            }
-                            
                             // Handle media errors specifically - these are the most common in playback
                             if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                                console.error('Media error:', data.type, data.details, data);
+                                
                                 if (mediaErrorRecoveryAttempts < MAX_MEDIA_ERROR_RECOVERY_ATTEMPTS) {
                                     mediaErrorRecoveryAttempts++;
                                     console.log(`Media error recovery attempt ${mediaErrorRecoveryAttempts}/${MAX_MEDIA_ERROR_RECOVERY_ATTEMPTS}`);

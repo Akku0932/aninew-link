@@ -113,6 +113,9 @@ export async function GET(request: NextRequest) {
             const lines = text.split(/\r?\n/);
             let hasExtM3U = false;
             let hasTargetDuration = false;
+            let hasExtInf = false;
+            let hasMasterTags = false;
+            let isMasterPlaylist = false;
             let modifiedText = text;
             
             // Check for required HLS tags
@@ -123,7 +126,24 @@ export async function GET(request: NextRequest) {
                 if (line.includes('#EXT-X-TARGETDURATION')) {
                     hasTargetDuration = true;
                 }
+                if (line.includes('#EXTINF:')) {
+                    hasExtInf = true;
+                }
+                // Check if this is a master playlist (contains stream info)
+                if (line.includes('#EXT-X-STREAM-INF') || line.includes('#EXT-X-MEDIA')) {
+                    hasMasterTags = true;
+                }
             }
+
+            // Determine if this is a master playlist
+            isMasterPlaylist = hasMasterTags && !hasExtInf;
+            console.log('Playlist analysis:', { 
+                isMasterPlaylist, 
+                hasExtM3U, 
+                hasTargetDuration, 
+                hasExtInf, 
+                hasMasterTags 
+            });
             
             // Fix common issues with the playlist
             if (!hasExtM3U) {
@@ -131,12 +151,34 @@ export async function GET(request: NextRequest) {
                 modifiedText = '#EXTM3U\n' + modifiedText;
             }
             
-            if (!hasTargetDuration) {
+            // Only add target duration to segment playlists, not master playlists
+            if (!hasTargetDuration && !isMasterPlaylist) {
                 console.log('Adding missing #EXT-X-TARGETDURATION tag');
                 // Add a reasonable target duration if missing (10 seconds is common)
                 modifiedText = modifiedText.replace('#EXTM3U', '#EXTM3U\n#EXT-X-TARGETDURATION:10');
             }
+
+            // Add version if missing - many players need this
+            if (!modifiedText.includes('#EXT-X-VERSION')) {
+                console.log('Adding missing #EXT-X-VERSION tag');
+                modifiedText = modifiedText.replace('#EXTM3U', '#EXTM3U\n#EXT-X-VERSION:3');
+            }
             
+            // Special fixes for malformed EXTINF entries
+            if (hasExtInf) {
+                // Fix EXTINF entries that are missing the duration
+                modifiedText = modifiedText.replace(/#EXTINF:/g, (match) => {
+                    // If the EXTINF doesn't have a duration, add a default of 10 seconds
+                    if (match === '#EXTINF:') {
+                        return '#EXTINF:10.0,';
+                    }
+                    return match;
+                });
+                
+                // Fix EXTINF entries that are missing the comma after duration
+                modifiedText = modifiedText.replace(/#EXTINF:(\d+\.?\d*)([^\s,])/g, '#EXTINF:$1,$2');
+            }
+
             // Replace relative URLs with proxied absolute ones
             // This regex matches non-comment, non-absolute URL lines in the m3u8 file
             modifiedText = modifiedText.replace(/^(?!#)(?!https?:\/\/)([^#][^\r\n]*)/gm, (match) => {
@@ -144,6 +186,9 @@ export async function GET(request: NextRequest) {
                     // Convert relative URL to absolute
                     const absoluteUrl = new URL(match, baseUrlPath).href;
                     console.log('Rewriting segment URL:', match, 'to', absoluteUrl);
+                    
+                    // If this is an m3u8 variant, make sure we add proxy
+                    const isVariant = match.toLowerCase().endsWith('.m3u8');
                     
                     // Use proxy for the absolute URL
                     return `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
@@ -153,9 +198,10 @@ export async function GET(request: NextRequest) {
                 }
             });
             
-            // Also rewrite absolute URLs in the file to use our proxy
-            modifiedText = modifiedText.replace(/(https?:\/\/[^\s"']+\.ts)/g, (match) => {
-                console.log('Rewriting absolute TS URL:', match);
+            // Also rewrite absolute URLs in the file to use our proxy 
+            // Handle both m3u8 and ts files
+            modifiedText = modifiedText.replace(/(https?:\/\/[^\s"'\r\n]+\.(?:ts|m3u8))/g, (match) => {
+                console.log('Rewriting absolute URL:', match);
                 return `/api/proxy?url=${encodeURIComponent(match)}`;
             });
             
@@ -165,6 +211,11 @@ export async function GET(request: NextRequest) {
             }
             
             console.log('Processed m3u8 playlist. Length:', modifiedText.length);
+            
+            // For debugging, log the first few lines of the processed playlist
+            const processedLines = modifiedText.split('\n').slice(0, 10); 
+            console.log('Processed playlist preview:', processedLines.join('\n'));
+            
             return new NextResponse(modifiedText, { 
                 headers: responseHeaders
             });

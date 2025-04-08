@@ -1180,25 +1180,31 @@ export default function WatchPage() {
               art.on('ready', () => {
                 console.log('ArtPlayer ready event fired');
                 
-                // Restore position if found
-                if (savedProgress && savedProgress.timestamp > 0) {
-                  console.log('Restoring position to', savedProgress.timestamp);
+                // Find saved progress for this episode again to ensure latest data
+                const latestSavedProgress = JSON.parse(localStorage.getItem('watchProgress') || '[]')
+                  .find((p: WatchProgress) => p.animeId === id && p.episodeId === currentEpisodeId);
+                
+                console.log('Saved progress found:', latestSavedProgress);
+                
+                // Restore position if found and greater than 5 seconds
+                if (latestSavedProgress && latestSavedProgress.timestamp > 5) {
+                  console.log('Attempting to restore position to:', latestSavedProgress.timestamp);
                   
-                  // Use the correct method to seek in ArtPlayer
-                  art.seek = savedProgress.timestamp;
-                  
-                  // Also try to set the video element directly
-                  const video = art.template.$video;
-                  if (video) {
-                    video.currentTime = savedProgress.timestamp;
-                  }
-                  
-                  // Show a toast notification
-                  toast({
-                    title: "Resuming Playback",
-                    description: `Resuming from ${Math.floor(savedProgress.timestamp / 60)}:${String(Math.floor(savedProgress.timestamp % 60)).padStart(2, '0')}`,
-                    duration: 3000,
-                  });
+                  // Wait a short delay to ensure player is fully initialized
+                  setTimeout(() => {
+                    // Use the correct property to seek in ArtPlayer
+                    art.currentTime = latestSavedProgress.timestamp;
+                    console.log('Position restoration attempted, current time:', art.currentTime);
+                    
+                    // Show a toast notification
+                    toast({
+                      title: "Resuming Playback",
+                      description: `Resuming from ${Math.floor(latestSavedProgress.timestamp / 60)}:${String(Math.floor(latestSavedProgress.timestamp % 60)).padStart(2, '0')}`,
+                      duration: 3000,
+                    });
+                  }, 1000);
+                } else {
+                  console.log('No valid saved progress found to restore');
                 }
               });
 
@@ -1324,7 +1330,8 @@ export default function WatchPage() {
       animeId: id,
       episodeId: currentEpisodeId,
       timestamp,
-      title: animeInfo.info.name
+      title: animeInfo.info.name,
+      episodeNumber: currentEpisodeNumber
     });
 
     const progress: WatchProgress = {
@@ -1354,6 +1361,7 @@ export default function WatchPage() {
     if (typeof window !== 'undefined') {
       try {
         window.dispatchEvent(new Event('watchProgressUpdated'))
+        console.log('Dispatched watchProgressUpdated event with timestamp:', timestamp);
       } catch (error) {
         console.error('Error dispatching watchProgressUpdated event:', error)
       }
