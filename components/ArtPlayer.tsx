@@ -52,299 +52,249 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
             option.aspectRatio = parseFloat(option.aspectRatio);
         }
 
-        // Pre-process the URL - always proxy m3u8 files if they're external
-        let sourceUrl = options.url;
-        const isM3u8 = sourceUrl.includes('.m3u8');
-        
-        // Always proxy external m3u8 URLs that aren't already proxied
-        if (isM3u8 && 
-            sourceUrl.startsWith('http') && 
-            !sourceUrl.startsWith('/api/proxy') && 
-            !sourceUrl.includes('localhost')) {
-            console.log('Pre-proxying m3u8 URL:', sourceUrl);
-            sourceUrl = `/api/proxy?url=${encodeURIComponent(sourceUrl)}&t=${Date.now()}`;
-        }
-
         const art = new Artplayer({
             ...option,
-            url: sourceUrl, // Use possibly proxied source URL
             container: artRef.current,
-            type: isM3u8 ? 'customHls' : 'auto',
+            type: options.url.includes('.m3u8') ? 'customHls' : 'auto',
             customType: {
                 customHls: function (video: HTMLVideoElement, url: string) {
                     if (Hls.isSupported()) {
                         hls = new Hls({
                             xhrSetup: function(xhr, url) {
-                                // Skip proxying for URLs that are already proxied or local
-                                if (url.startsWith('/api/proxy') || url.startsWith('data:') || 
-                                    url.includes('localhost') || url.startsWith('blob:')) {
-                                    return;
-                                }
-                                
-                                // Always proxy external URLs to avoid CORS issues
-                                if (url.startsWith('http')) {
-                                    console.log('Proxying HLS request:', url);
-                                    // Use our proxy with a cache buster to avoid cached errors
-                                    const cacheBuster = Date.now();
-                                    xhr.open('GET', `/api/proxy?url=${encodeURIComponent(url)}&t=${cacheBuster}`, true);
+                                xhr.withCredentials = false;
+                                if (!url.startsWith('/api/proxy') && !url.startsWith('data:')) {
+                                    const absoluteUrl = url.startsWith('http') ? url : new URL(url, window.location.href).href;
+                                    xhr.open('GET', `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`, true);
                                 }
                             },
-                            // Set configuration for better segment loading
-                            maxBufferSize: 30 * 1000 * 1000, // 30MB
-                            maxBufferLength: 30,            // 30 seconds buffer
-                            maxMaxBufferLength: 60,         // 60 seconds max buffer
-                            startLevel: -1,                // auto start quality level
-                            autoStartLoad: true,
-                            // Better error recovery
-                            fragLoadingMaxRetry: 8,
-                            manifestLoadingMaxRetry: 8,
-                            levelLoadingMaxRetry: 8,       
-                            // Add longer timeouts
-                            manifestLoadingTimeOut: 30000,  // 30 seconds
-                            levelLoadingTimeOut: 30000,     // 30 seconds
-                            fragLoadingTimeOut: 30000,      // 30 seconds
-                            // Shorter retry delays for faster recovery
-                            manifestLoadingRetryDelay: 1000,
-                            levelLoadingRetryDelay: 1000,
-                            fragLoadingRetryDelay: 1000,
-                            // Improve segment parsing
-                            enableWorker: true,            // Enable workers for better performance
-                            lowLatencyMode: false,         // Disable low latency mode
-                            // Disable debugging to improve performance
-                            debug: false
+                            debug: process.env.NODE_ENV === 'development'
                         });
-
-                        console.log('Loading HLS source:', url);
-                        
-                        // Store original URL for fallbacks
-                        const originalUrl = url;
-                        
-                        // Load the source and attach to video element
-                        hls.loadSource(url);
+                        const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+                        hls.loadSource(proxyUrl);
                         hls.attachMedia(video);
-                        
-                        // Handle HLS events
-                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                            console.log('HLS manifest parsed successfully');
-                            
-                            if (option.autoplay) {
-                                video.play().catch(e => console.error('Autoplay failed:', e));
-                            }
-                        });
 
-                        // Log fragment loading for diagnostics
-                        hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
-                            if (data.frag?.sn === 1) {
-                                console.log('Loading first fragment:', data.frag?.url);
+                        // Handle duration and currentTime through the video element
+                        video.addEventListener('loadedmetadata', () => {
+                            // Only set currentTime if it's provided and valid
+                            if (option.currentTime && !isNaN(option.currentTime)) {
+                                art.currentTime = option.currentTime;
                             }
-                        });
 
-                        // Handle errors with improved recovery
-                        hls.on(Hls.Events.ERROR, function(event, data) {
-                            if (!data) return;
-                            
-                            console.error('HLS error:', data.type, data.details, data.error?.message);
-                            
-                            // Handle specific error: Missing Target Duration
-                            if (data.details === 'manifestParsingError' && 
-                                data.error?.message?.includes('Missing Target Duration')) {
-                                console.warn('Missing Target Duration error, manually fixing playlist');
-                                
-                                // Try to get the direct URL
-                                let directUrl = originalUrl;
-                                if (originalUrl.includes('/api/proxy?url=')) {
-                                    try {
-                                        const urlParams = new URLSearchParams(originalUrl.split('/api/proxy?')[1]);
-                                        const urlParam = urlParams.get('url');
-                                        if (urlParam) {
-                                            directUrl = decodeURIComponent(urlParam);
-                                        }
-                                    } catch (e) {
-                                        console.error('Error extracting direct URL:', e);
-                                    }
+                            // Enable subtitles by default if available
+                            if (options.subtitles?.length) {
+                                const defaultSub = options.subtitles.find(sub => 
+                                    (typeof sub.default === 'boolean' && sub.default) || 
+                                    (typeof sub.language === 'string' && sub.language.toLowerCase().includes('english'))
+                                );
+                                if (defaultSub) {
+                                    art.subtitle.show();
+                                    art.subtitle.switch(defaultSub.url, {
+                                        name: defaultSub.html || defaultSub.language,
+                                        type: 'vtt',
+                                    });
                                 }
-                                
-                                // Fetch the playlist content directly
-                                fetch(directUrl, {
-                                    headers: {
-                                        'Origin': window.location.origin,
-                                        'Referer': window.location.origin
-                                    }
-                                })
-                                .then(response => {
-                                    if (!response.ok) {
-                                        throw new Error(`HTTP error ${response.status}`);
-                                    }
-                                    return response.text();
-                                })
-                                .then(text => {
-                                    // Fix the playlist content
-                                    let fixedText = text;
-                                    
-                                    // Ensure it has EXTM3U tag
-                                    if (!fixedText.includes('#EXTM3U')) {
-                                        fixedText = '#EXTM3U\n' + fixedText;
-                                    }
-                                    
-                                    // Add target duration if missing
-                                    if (!fixedText.includes('#EXT-X-TARGETDURATION')) {
-                                        fixedText = fixedText.replace('#EXTM3U', '#EXTM3U\n#EXT-X-TARGETDURATION:10');
-                                    }
-                                    
-                                    // Add version if missing
-                                    if (!fixedText.includes('#EXT-X-VERSION')) {
-                                        fixedText = fixedText.replace('#EXTM3U', '#EXTM3U\n#EXT-X-VERSION:3');
-                                    }
-                                    
-                                    // Create a blob URL with the fixed content
-                                    const blob = new Blob([fixedText], { type: 'application/vnd.apple.mpegurl' });
-                                    const blobUrl = URL.createObjectURL(blob);
-                                    
-                                    // Destroy old HLS instance
-                                    if (hls) {
-                                        hls.destroy();
-                                    }
-                                    
-                                    // Create new HLS instance with the fixed content
-                                    const newHls = new Hls({
-                                        enableWorker: true,
-                                        debug: false
-                                    });
-                                    
-                                    newHls.loadSource(blobUrl);
-                                    newHls.attachMedia(video);
-                                    hls = newHls;
-                                    
-                                    // Clean up blob URL when done
-                                    newHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                                        URL.revokeObjectURL(blobUrl);
-                                    });
-                                })
-                                .catch(error => {
-                                    console.error('Error fixing playlist:', error);
-                                    
-                                    // Try to load directly through our proxy to fix it server-side
-                                    const proxyUrl = `/api/proxy?url=${encodeURIComponent(directUrl)}&t=${Date.now()}`;
-                                    
-                                    if (hls) {
-                                        hls.destroy();
-                                    }
-                                    
-                                    const newHls = new Hls({
-                                        enableWorker: true,
-                                        debug: false
-                                    });
-                                    
-                                    newHls.loadSource(proxyUrl);
-                                    newHls.attachMedia(video);
-                                    hls = newHls;
-                                });
-                                
-                                return;
                             }
-                            
-                            // Handle fatal errors
-                            if (data.fatal) {
+                        });
+
+                        // Add error handling
+                        hls.on('hlsError' as any, function(event: unknown, data: { fatal: boolean; type: string }) {
+                            if (data.fatal && hls) {
                                 switch (data.type) {
-                                    case Hls.ErrorTypes.NETWORK_ERROR:
-                                        // For network errors, try reloading
-                                        console.log('Fatal network error, trying to recover');
-                                        if (hls) {
-                                            hls.startLoad();
-                                        }
+                                    case 'networkError':
+                                        console.error('HLS network error', data);
+                                        hls?.startLoad();
                                         break;
-                                    case Hls.ErrorTypes.MEDIA_ERROR:
-                                        console.log('Fatal media error, trying to recover');
-                                        if (hls) {
-                                            hls.recoverMediaError();
-                                        }
+                                    case 'mediaError':
+                                        console.error('HLS media error', data);
+                                        hls?.recoverMediaError();
                                         break;
                                     default:
-                                        // For other fatal errors, if not already proxied, try proxying
-                                        if (!url.includes('/api/proxy') && url.startsWith('http')) {
-                                            console.log('Fatal error, trying proxied URL');
-                                            
-                                            // Destroy current instance
-                                            if (hls) {
-                                                hls.destroy();
-                                            }
-                                            
-                                            // Create new instance with proxied URL
-                                            const proxiedUrl = `/api/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`;
-                                            
-                                            const newHls = new Hls({
-                                                enableWorker: true,
-                                                debug: false
-                                            });
-                                            
-                                            newHls.loadSource(proxiedUrl);
-                                            newHls.attachMedia(video);
-                                            hls = newHls;
-                                        } else {
-                                            console.error('Fatal error and recovery failed');
-                                        }
+                                        console.error('HLS fatal error', data);
                                         break;
                                 }
                             }
                         });
+                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                        video.src = `/api/proxy?url=${encodeURIComponent(url)}`;
                     } else {
-                        // For browsers with native HLS support
-                        video.src = url;
+                        console.error('HLS is not supported in this browser.');
                     }
-                }
+                },
             },
-            controls: option.controls || true,
-            poster: option.poster || '',
-            setting: true,
-            loop: option.loop || false,
-            muted: option.muted || false,
-            autoplay: option.autoplay || false,
-            autoSize: option.autoSize || false,
-            autoMini: option.autoMini || false,
+            volume: 1,
+            autoplay: false,
+            pip: true,
             screenshot: true,
-            volume: typeof option.volume === 'number' ? option.volume : 0.5,
-            flip: true,
+            fastForward: true,
+            lock: true,
             playbackRate: true,
-            aspectRatio: option.aspectRatio !== undefined ? option.aspectRatio : true,
+            aspectRatio: true,
             fullscreen: true,
-            fullscreenWeb: option.fullscreenWeb !== undefined ? option.fullscreenWeb : false,
+            fullscreenWeb: true,
             subtitleOffset: true,
             miniProgressBar: true,
+            mutex: true,
+            backdrop: true,
             playsInline: true,
-            quality: option.quality || [],
-            plugins: option.plugins || [],
-            // Use the whitelist property if it exists in options
-            whitelist: option.whitelist || [],
-            lock: option.lock !== undefined ? option.lock : false,
-            fastForward: option.fastForward !== undefined ? option.fastForward : false,
-            hotkey: option.hotkey !== undefined ? option.hotkey : true,
-            autoOrientation: option.autoOrientation !== undefined ? option.autoOrientation : true,
-            ready: function(art: Artplayer) {
-                console.log('ArtPlayer is ready');
-                
-                // Execute getInstance callback if defined
-                if (getInstance) {
-                    getInstance(art);
+            autoPlayback: false,
+            airplay: true,
+            theme: '#23ade5',
+            hotkey: true,
+            moreVideoAttr: {
+                crossOrigin: 'anonymous',
+            },
+            subtitle: {
+                style: {
+                    color: '#FFFFFF',
+                    fontSize: '20px',
+                    textShadow: '0 2px 2px rgba(0, 0, 0, 0.5)',
+                    fontFamily: 'Arial, sans-serif',
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    borderRadius: '4px'
+                },
+                encoding: 'utf-8',
+                escape: false
+            },
+            controls: [
+                ...(options.subtitles?.length ? [{
+                    name: 'subtitle',
+                    position: 'right',
+                    html: 'Subtitle',
+                    selector: options.subtitles.map(sub => ({
+                        html: sub.html,
+                        url: sub.url,
+                        default: sub.default,
+                    })),
+                }] : []),
+                {
+                    name: 'mobile-play',
+                    position: 'right',
+                    html: 'Play',
+                    click: function () {
+                        art.toggle();
+                    },
+                },
+            ],
+            settings: [
+                {
+                    html: 'Play Speed',
+                    width: 150,
+                    tooltip: 'Play Speed',
+                    selector: [
+                        { html: '0.5x', value: 0.5 },
+                        { html: '0.75x', value: 0.75 },
+                        { html: 'Normal', value: 1, default: true },
+                        { html: '1.25x', value: 1.25 },
+                        { html: '1.5x', value: 1.5 },
+                        { html: '2x', value: 2 },
+                    ],
+                },
+                {
+                    html: 'Aspect Ratio',
+                    width: 150,
+                    tooltip: 'Aspect Ratio',
+                    selector: [
+                        { html: 'Default', value: 'default', default: true },
+                        { html: '4:3', value: '4:3' },
+                        { html: '16:9', value: '16:9' },
+                    ],
+                },
+                {
+                    html: 'Video Flip',
+                    width: 150,
+                    tooltip: 'Video Flip',
+                    selector: [
+                        { html: 'Normal', value: 'normal', default: true },
+                        { html: 'Horizontal', value: 'horizontal' },
+                        { html: 'Vertical', value: 'vertical' },
+                    ],
+                },
+            ],
+        });
+
+        // Store the instance
+        artPlayerRef.current = art;
+
+        // Add keyboard shortcuts
+        const shortcuts: { [key: string]: () => void } = {
+            ' ': () => art.toggle(),
+            ArrowLeft: () => {
+                const currentTime = parseFloat(art.currentTime.toFixed(3));
+                const newTime = currentTime - 5;
+                art.currentTime = newTime >= 0 ? newTime : 0;
+            },
+            ArrowRight: () => {
+                const currentTime = parseFloat(art.currentTime.toFixed(3));
+                const duration = parseFloat(art.duration.toFixed(3));
+                const newTime = currentTime + 5;
+                art.currentTime = newTime <= duration ? newTime : duration;
+            },
+            ArrowUp: () => {
+                const volume = art.volume;
+                const newVolume = volume + 0.1;
+                art.volume = newVolume <= 1 ? newVolume : 1;
+            },
+            ArrowDown: () => {
+                const volume = art.volume;
+                const newVolume = volume - 0.1;
+                art.volume = newVolume >= 0 ? newVolume : 0;
+            },
+            'f': () => art.fullscreen = !art.fullscreen,
+            'm': () => art.muted = !art.muted,
+        };
+
+        Object.entries(shortcuts).forEach(([key, callback]) => {
+            art.hotkey.add(key, callback);
+        });
+
+        // Mobile touch controls
+        const container = art.template.$container;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchStartTime = 0;
+        let isSeeking = false;
+
+        container.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            touchStartTime = Date.now();
+            isSeeking = false;
+        });
+
+        container.addEventListener('touchmove', (e) => {
+            if (Date.now() - touchStartTime > 500) {
+                const deltaX = e.touches[0].clientX - touchStartX;
+                if (Math.abs(deltaX) > 30 && !isSeeking) {
+                    isSeeking = true;
+                    const currentTime = parseFloat(art.currentTime.toFixed(3));
+                    const duration = parseFloat(art.duration.toFixed(3));
+                    const newTime = currentTime + (deltaX > 0 ? 10 : -10);
+                    art.currentTime = newTime >= 0 && newTime <= duration ? newTime : currentTime;
+                    touchStartX = e.touches[0].clientX;
                 }
-                
-                // Save ref to current instance
-                artPlayerRef.current = art;
             }
         });
 
-        // Clean up
+        container.addEventListener('touchend', () => {
+            if (!isSeeking && Date.now() - touchStartTime < 300) {
+                art.toggle();
+            }
+        });
+
+        if (getInstance && typeof getInstance === 'function') {
+            getInstance(art);
+        }
+
         return () => {
             if (artPlayerRef.current) {
                 artPlayerRef.current.destroy();
                 artPlayerRef.current = null;
             }
-            
             if (hls) {
                 hls.destroy();
-                hls = null;
             }
         };
-    }, [options, getInstance]);
+    }, [options.url, options.subtitles]);
 
     return <div ref={artRef} className={className} style={style} />;
 }

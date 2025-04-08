@@ -367,9 +367,9 @@ export default function WatchPage() {
 
   // Fetch video source for an episode
   const fetchVideoSource = async (episodeId: string) => {
-    setIsLoading(true);
-    setError(null);
-    
+      setIsLoading(true);
+      setError(null);
+      
     try {
       const animeId = typeof id === "string" ? id.split("?")[0] : id;
       
@@ -386,15 +386,13 @@ export default function WatchPage() {
       
       for (const cat of categoriesToCheck) {
         try {
-          const response = await fetch(
+      const response = await fetch(
             `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${cat}&server=${selectedServer}`,
             {
               method: "GET",
               headers: {
                 "Content-Type": "application/json",
               },
-              // Add a 5 second timeout to prevent long waiting on failing requests
-              signal: AbortSignal.timeout(5000)
             }
           );
           
@@ -403,11 +401,8 @@ export default function WatchPage() {
             if (data.sources?.length) {
               availableCats.push(cat);
             }
-          } else {
-            console.log(`Category ${cat} not available (HTTP ${response.status})`);
           }
         } catch (error) {
-          // Log but don't throw - allow the function to continue with other categories
           console.log(`Error checking ${cat} availability:`, error);
         }
       }
@@ -416,91 +411,65 @@ export default function WatchPage() {
       
       // Set default category based on availability
       let currentCategory = category;
-      if (!availableCats.includes(currentCategory)) {
-        if (availableCats.includes("sub")) {
-          currentCategory = "sub";
-        } else if (availableCats.includes("dub")) {
-          currentCategory = "dub";
-        } else if (availableCats.includes("raw")) {
-          currentCategory = "raw";
-        } else if (availableCats.length > 0) {
-          currentCategory = availableCats[0];
-        }
-        // If no categories are available at all, keep the current selection
-        // but the fetch will likely fail below with a proper error message
+      if (availableCats.includes("sub")) {
+        currentCategory = "sub";
+      } else if (availableCats.includes("dub")) {
+        currentCategory = "dub";
+      } else if (availableCats.includes("raw")) {
+        currentCategory = "raw";
+      } else if (availableCats.length > 0) {
+        currentCategory = availableCats[0];
       }
       
       setCategory(currentCategory);
       
-      // Fetch the selected category's source with improved error handling
-      try {
-        const response = await fetch(
-          `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${currentCategory}&server=${selectedServer}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            // Add a cache buster to avoid stale cached error responses
-            cache: 'no-store'
-          }
-        );
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${currentCategory} source (HTTP ${response.status})`);
+      // Fetch the selected category's source
+      const response = await fetch(
+        `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${currentCategory}&server=${selectedServer}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
-        
-        const data = await response.json();
-        
-        if (!data.sources?.length) {
-          throw new Error(`No video sources found for ${currentCategory}`);
-        }
+      );
 
-        // Set video source with all available data
-        const videoSource = {
-          url: data.sources[0].url,
-          type: data.sources[0].type || 'hls',
-          isM3U8: true,
-          intro: data.intro || data.sources[0].intro,
-          outro: data.outro || data.sources[0].outro,
-          subtitles: data.tracks?.filter((track: VideoTrack) => track.kind === "captions").map((track: VideoTrack) => ({
-            url: track.file,
-            language: track.label.toLowerCase(),
-            label: track.label,
-            default: track.default || track.label.toLowerCase().includes('english')
-          })) || [],
-          audio: currentCategory === 'raw' ? 'raw' : currentCategory === 'sub' ? 'jpn' : 'eng',
-          quality: data.sources[0].quality
-        };
-
-        setVideoSrc(videoSource);
-        setVideoTracks(data.tracks?.filter((track: VideoTrack) => track.kind !== "thumbnails") || []);
-        setSubtitles(data.tracks?.filter((track: VideoTrack) => track.kind === "captions").map((track: VideoTrack) => ({
-          url: track.file,
-          language: track.label.toLowerCase(),
-          label: track.label,
-          default: track.default || track.label.toLowerCase().includes('english')
-        })) || []);
-
-        // Preload the video source for faster playback
-        if (typeof window !== 'undefined') {
-          const link = document.createElement('link');
-          link.rel = 'preload';
-          link.as = 'fetch';
-          link.href = videoSource.url;
-          document.head.appendChild(link);
-        }
-
-      } catch (error) {
-        console.error('Error fetching video source:', error);
-        setError('Failed to load video source');
-        toast({
-          title: "Error",
-          description: "Failed to load video source. Please try again.",
-          variant: "destructive",
-          duration: 5000,
-        });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${currentCategory} source`);
       }
+      
+      const data = await response.json();
+      
+      if (!data.sources?.length) {
+        throw new Error(`No video sources found for ${currentCategory}`);
+      }
+
+      // Set video source with all available data
+      const videoSource = {
+        url: data.sources[0].url,
+        type: data.sources[0].type || 'hls',
+        isM3U8: true,
+        intro: data.intro || data.sources[0].intro,
+        outro: data.outro || data.sources[0].outro,
+        subtitles: data.tracks?.filter((track: VideoTrack) => track.kind === "captions").map((track: VideoTrack) => ({
+        url: track.file,
+        language: track.label.toLowerCase(),
+        label: track.label,
+        default: track.default || track.label.toLowerCase().includes('english')
+        })) || [],
+        audio: currentCategory === 'raw' ? 'raw' : currentCategory === 'sub' ? 'jpn' : 'eng',
+        quality: data.sources[0].quality
+      };
+
+      setVideoSrc(videoSource);
+      setVideoTracks(data.tracks?.filter((track: VideoTrack) => track.kind !== "thumbnails") || []);
+      setSubtitles(data.tracks?.filter((track: VideoTrack) => track.kind === "captions").map((track: VideoTrack) => ({
+        url: track.file,
+        language: track.label.toLowerCase(),
+        label: track.label,
+        default: track.default || track.label.toLowerCase().includes('english')
+      })) || []);
+
     } catch (error) {
       console.error('Error fetching video source:', error);
       setError('Failed to load video source');
@@ -536,12 +505,6 @@ export default function WatchPage() {
       if (savedProgress && video && video.readyState >= 2) {
         console.log('Restoring video position to', savedProgress.timestamp);
         video.currentTime = savedProgress.timestamp
-        // Show a toast notification when resuming
-        toast({
-          title: "Resuming Playback",
-          description: `Resuming from ${Math.floor(savedProgress.timestamp / 60)}:${String(Math.floor(savedProgress.timestamp % 60)).padStart(2, '0')}`,
-          duration: 3000,
-        });
         return true
       }
       return false
@@ -851,19 +814,8 @@ export default function WatchPage() {
       );
     }
 
-    // Ensure URL is proxied
-    const videoUrl = videoSrc.url.startsWith('/api/proxy') 
-      ? videoSrc.url 
-      : `/api/proxy?url=${encodeURIComponent(videoSrc.url)}`;
-    
-    // Ensure subtitle URLs are proxied
-    const processedSubtitles = videoSrc.subtitles?.map(sub => ({
-      ...sub,
-      url: sub.url.startsWith('/api/proxy') ? sub.url : `/api/proxy?url=${encodeURIComponent(sub.url)}`
-    }));
-
     const playerOptions = {
-      url: videoUrl,
+      url: videoSrc.url,
       type: 'm3u8', // Always use m3u8 for HLS streams
       title: `${animeInfo?.info?.name} - Episode ${currentEpisodeId.split('?ep=')[1]}`,
       poster: animeInfo?.info?.img || "",
@@ -895,8 +847,8 @@ export default function WatchPage() {
       moreVideoAttr: {
         crossOrigin: "anonymous",
       },
-      subtitle: processedSubtitles?.length ? {
-        url: processedSubtitles[0].url,
+      subtitle: videoSrc.subtitles?.length ? {
+        url: videoSrc.subtitles[0].url,
         type: 'vtt',
         style: {
           color: '#fff',
@@ -929,7 +881,7 @@ export default function WatchPage() {
           icon: '<i class="art-icon art-icon-subtitle"></i>',
           selector: [
             { html: 'Off', value: 'off' },
-            ...(processedSubtitles?.map(sub => ({
+            ...(videoSrc.subtitles?.map(sub => ({
               html: sub.label,
               value: sub.url,
               default: sub.default
@@ -951,15 +903,9 @@ export default function WatchPage() {
       ],
       customType: {
         m3u8: function (video: HTMLVideoElement, url: string) {
-          // Ensure URL is properly proxied in customType function
-          const finalUrl = url.startsWith('/api/proxy') ? url : `/api/proxy?url=${encodeURIComponent(url)}`;
-          console.log('Loading video with URL:', finalUrl);
-          
-          // Dynamically import HLS.js and handle all possible errors
+          // Dynamically import HLS.js
           import('hls.js').then(({ default: Hls }) => {
             if (Hls.isSupported()) {
-              console.log('HLS.js is supported, initializing with URL:', finalUrl);
-              
               const hls = new Hls({
                 autoStartLoad: true,
                 startLevel: -1, // Auto quality by default
@@ -969,85 +915,21 @@ export default function WatchPage() {
                 maxBufferSize: 60 * 1000 * 1000, // 60MB max buffer size
                 maxBufferHole: 0.5,
                 lowLatencyMode: false,
-                debug: false,
-                // Add retry configuration
-                fragLoadingMaxRetry: 6,
-                manifestLoadingMaxRetry: 6,
-                levelLoadingMaxRetry: 6,
-                fragLoadingRetryDelay: 1000,
-                manifestLoadingRetryDelay: 1000,
-                levelLoadingRetryDelay: 1000,
-                // More lenient error handling
-                fragLoadingMaxRetryTimeout: 10000,
-                manifestLoadingMaxRetryTimeout: 10000,
-                levelLoadingMaxRetryTimeout: 10000,
-                // Configure XHR for CORS issues
-                xhrSetup: (xhr, hlsUrl) => {
-                  if (!hlsUrl.startsWith('/api/proxy') && !hlsUrl.includes('data:')) {
-                    const encodedUrl = encodeURIComponent(hlsUrl);
-                    xhr.open('GET', `/api/proxy?url=${encodedUrl}`, true);
-                  }
-                }
+                debug: false
               });
               
-              // Error handling
-              hls.on(Hls.Events.ERROR, (event, data) => {
-                console.warn('HLS error:', data.type, data.details, data);
-                
-                if (data.fatal) {
-                  switch (data.type) {
-                    case Hls.ErrorTypes.NETWORK_ERROR:
-                      console.log('Fatal network error encountered, trying to recover');
-                      toast({
-                        title: "Network Error",
-                        description: "Attempting to reconnect to video source...",
-                        duration: 3000,
-                      });
-                      hls.startLoad();
-                      break;
-                    case Hls.ErrorTypes.MEDIA_ERROR:
-                      console.log('Fatal media error encountered, trying to recover');
-                      toast({
-                        title: "Playback Error",
-                        description: "Attempting to recover playback...",
-                        duration: 3000,
-                      });
-                      hls.recoverMediaError();
-                      break;
-                    default:
-                      console.log('Fatal error, cannot recover');
-                      toast({
-                        title: "Video Error",
-                        description: "Please try a different server or episode",
-                        variant: "destructive",
-                        duration: 5000,
-                      });
-                      
-                      // Try direct playback
-                      console.log('Trying direct playback as fallback');
-                      hls.destroy();
-                      video.src = finalUrl;
-                      video.play().catch(e => {
-                        console.error('Direct playback failed too:', e);
-                      });
-                      break;
-                  }
-                }
-              });
-              
-              // Log successful loading
+              hls.loadSource(url);
+              hls.attachMedia(video);
+              hlsRef.current = hls;
+
+              // Handle quality levels after manifest is loaded
               hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
-                console.log('HLS manifest parsed successfully:', {
-                  levels: data.levels.length,
-                  firstLevel: data.firstLevel
-                });
-                
                 const qualities = data.levels.map(level => ({
                   html: `${level.height}p`,
                   value: level.url[0],
                   bitrate: level.bitrate
                 }));
-                
+
                 // Update quality options
                 const art = artRef.current;
                 if (art) {
@@ -1057,31 +939,11 @@ export default function WatchPage() {
                       { html: 'Auto', value: 'auto', default: true },
                       ...qualities
                     ],
-                    onSelect: (item: { html: string; value: string }) => {
-                      if (item.value === 'auto') {
-                        hls.currentLevel = -1;
-                      } else {
-                        // Find the level index by URL
-                        const levelIndex = data.levels.findIndex(l => l.url[0] === item.value);
-                        if (levelIndex !== -1) {
-                          hls.currentLevel = levelIndex;
-                        }
-                      }
-                      return item.html;
-                    }
                   });
                 }
+
+                console.log('Available qualities:', qualities);
               });
-              
-              try {
-                hls.loadSource(finalUrl);
-                hls.attachMedia(video);
-                hlsRef.current = hls;
-              } catch (error) {
-                console.error('Error initializing HLS:', error);
-                // Fallback to direct playback
-                video.src = finalUrl;
-              }
               
               // Clean up HLS on destroy
               video.addEventListener('destroy', () => {
@@ -1090,30 +952,9 @@ export default function WatchPage() {
                   hlsRef.current = null;
                 }
               });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-              // For Safari which has native HLS support
-              console.log('Using native HLS support');
-              video.src = finalUrl;
-            } else {
-              console.error('Neither HLS.js nor native HLS is supported');
-              toast({
-                title: "Compatibility Error",
-                description: "Your browser doesn't support HLS video playback",
-                variant: "destructive",
-                duration: 5000,
-              });
-              video.src = finalUrl; // Try direct anyway as last resort
             }
           }).catch(err => {
             console.error("Failed to load HLS.js:", err);
-            // If HLS.js fails to load, try direct playback
-            video.src = finalUrl;
-            toast({
-              title: "Playback Error",
-              description: "Could not initialize video player",
-              variant: "destructive",
-              duration: 5000,
-            });
           });
         }
       }
@@ -1129,91 +970,81 @@ export default function WatchPage() {
             }}
             getInstance={(art) => {
               artRef.current = art;
-              playerRef.current = art;
+            playerRef.current = art;
 
-              // Find saved progress for this episode
-              const savedProgress = watchProgress.find(p => 
-                p.animeId === id && p.episodeId === currentEpisodeId
-              );
+            // Set up time update listener for skip detection
+            art.on('video:timeupdate', () => {
+              if (!videoSrc) return;
               
-              // Set up time update listener for skip detection
-              art.on('video:timeupdate', () => {
-                if (!videoSrc) return;
-                
-                const currentTime = art.currentTime;
-                const video = art.template.$video;
+              const currentTime = art.currentTime;
+              const video = art.template.$video;
                 
                 // Save playback position for continue watching
                 if (currentTime > 3 && animeInfo?.info) {
                   saveWatchProgress(currentTime);
                 }
-                
-                // Handle intro skip
-                if (autoskip && videoSrc.intro && 
-                    currentTime >= videoSrc.intro.start && 
-                    currentTime <= videoSrc.intro.end) {
-                  console.log('Skipping intro:', {
-                    currentTime,
-                    intro: videoSrc.intro
+              
+              // Handle intro skip
+              if (autoskip && videoSrc.intro && 
+                  currentTime >= videoSrc.intro.start && 
+                  currentTime <= videoSrc.intro.end) {
+                console.log('Skipping intro:', {
+                  currentTime,
+                  intro: videoSrc.intro
+                });
+                if (video) {
+                  video.currentTime = videoSrc.intro.end;
+                  toast({
+                    title: "Intro Skipped",
+                    description: "Automatically skipped the intro",
+                    duration: 2000,
                   });
-                  if (video) {
-                    video.currentTime = videoSrc.intro.end;
+                }
+              }
+              
+              // Handle outro skip
+              if (autoskip && videoSrc.outro && 
+                  currentTime >= videoSrc.outro.start && 
+                  currentTime <= videoSrc.outro.end) {
+                console.log('Skipping outro:', {
+                  currentTime,
+                  outro: videoSrc.outro,
+                  autoNext
+                });
+                if (autoNext) {
+                  const nextEp = episodes.find(ep => ep.number === currentEpisodeNumber + 1);
+                  if (nextEp) {
+                    const nextEpId = nextEp.episodeId.split('?ep=')[1];
+                    setCurrentEpisodeId(nextEpId);
+                    router.push(`/watch/${id}?ep=${nextEpId}`);
                     toast({
-                      title: "Intro Skipped",
-                      description: "Automatically skipped the intro",
-                      duration: 2000,
+                      title: "Next Episode",
+                      description: `Playing episode ${nextEp.number}`,
+                      duration: 3000,
                     });
                   }
-                }
-                
-                // Handle outro skip
-                if (autoskip && videoSrc.outro && 
-                    currentTime >= videoSrc.outro.start && 
-                    currentTime <= videoSrc.outro.end) {
-                  console.log('Skipping outro:', {
-                    currentTime,
-                    outro: videoSrc.outro,
-                    autoNext
+                } else if (video) {
+                  video.currentTime = videoSrc.outro.end;
+                  toast({
+                    title: "Outro Skipped",
+                    description: "Automatically skipped the outro",
+                    duration: 2000,
                   });
-                  if (autoNext) {
-                    const nextEp = episodes.find(ep => ep.number === currentEpisodeNumber + 1);
-                    if (nextEp) {
-                      const nextEpId = nextEp.episodeId.split('?ep=')[1];
-                      setCurrentEpisodeId(nextEpId);
-                      router.push(`/watch/${id}?ep=${nextEpId}`);
-                      toast({
-                        title: "Next Episode",
-                        description: `Playing episode ${nextEp.number}`,
-                        duration: 3000,
-                      });
-                    }
-                  } else if (video) {
-                    video.currentTime = videoSrc.outro.end;
-                    toast({
-                      title: "Outro Skipped",
-                      description: "Automatically skipped the outro",
-                      duration: 2000,
-                    });
-                  }
                 }
-              });
+              }
+            });
 
               // When video is loaded, restore position if available
               art.on('ready', () => {
-                console.log('ArtPlayer ready event fired');
+                // Find saved progress for this episode
+                const savedProgress = watchProgress.find(p => 
+                  p.animeId === id && p.episodeId === currentEpisodeId
+                );
                 
                 // Restore position if found
                 if (savedProgress && savedProgress.timestamp > 0) {
                   console.log('Restoring position to', savedProgress.timestamp);
-                  
-                  // Use the correct method to seek in ArtPlayer
                   art.seek = savedProgress.timestamp;
-                  
-                  // Also try to set the video element directly
-                  const video = art.template.$video;
-                  if (video) {
-                    video.currentTime = savedProgress.timestamp;
-                  }
                   
                   // Show a toast notification
                   toast({
@@ -1224,130 +1055,110 @@ export default function WatchPage() {
                 }
               });
 
-              // Set up ended event for auto-next
-              art.on('video:ended', () => {
-                console.log('Video ended, checking for next episode');
-                if (autoNext) {
-                  const nextEp = episodes.find(ep => ep.number === currentEpisodeNumber + 1);
-                  if (nextEp) {
-                    console.log('Found next episode:', nextEp);
-                    const nextEpId = nextEp.episodeId.split('?ep=')[1];
-                    setCurrentEpisodeId(nextEpId);
-                    router.push(`/watch/${id}?ep=${nextEpId}`);
-                    toast({
-                      title: "Next Episode",
-                      description: `Playing episode ${nextEp.number}`,
-                      duration: 3000,
-                    });
-                  } else {
-                    console.log('No next episode found');
-                    toast({
-                      title: "Last Episode",
-                      description: "No more episodes available",
-                      variant: "destructive",
-                      duration: 3000,
-                    });
-                  }
+            // Set up ended event for auto-next
+            art.on('video:ended', () => {
+              console.log('Video ended, checking for next episode');
+              if (autoNext) {
+                const nextEp = episodes.find(ep => ep.number === currentEpisodeNumber + 1);
+                if (nextEp) {
+                  console.log('Found next episode:', nextEp);
+                  const nextEpId = nextEp.episodeId.split('?ep=')[1];
+                  setCurrentEpisodeId(nextEpId);
+                  router.push(`/watch/${id}?ep=${nextEpId}`);
+                  toast({
+                    title: "Next Episode",
+                    description: `Playing episode ${nextEp.number}`,
+                    duration: 3000,
+                  });
+                } else {
+                  console.log('No next episode found');
+                  toast({
+                    title: "Last Episode",
+                    description: "No more episodes available",
+                    variant: "destructive",
+                    duration: 3000,
+                  });
                 }
-              });
-
-              // Error handling for video element
-              art.on('error', () => {
-                console.error('Video element error');
-                toast({
-                  title: "Playback Error",
-                  description: "Failed to play this video. Please try a different server.",
-                  variant: "destructive",
-                  duration: 5000,
-                });
-              });
-
-              // Initialize subtitles if available
-              if (videoSrc.subtitles?.length) {
-                const defaultSub = videoSrc.subtitles.find(sub => 
-                  sub.language.toLowerCase() === 'english'
-                ) || videoSrc.subtitles[0];
-                art.subtitle.switch(defaultSub.url);
-                art.subtitle.show = true;
               }
+            });
 
-              // Clean up event listeners
-              return () => {
-                art.off('video:timeupdate');
-                art.off('video:ended');
+            // Initialize subtitles if available
+            if (videoSrc.subtitles?.length) {
+              const defaultSub = videoSrc.subtitles.find(sub => 
+                sub.language.toLowerCase() === 'english'
+              ) || videoSrc.subtitles[0];
+              art.subtitle.switch(defaultSub.url);
+              art.subtitle.show = true;
+            }
+
+            // Clean up event listeners
+            return () => {
+              art.off('video:timeupdate');
+              art.off('video:ended');
                 art.off('ready');
-                art.off('error');
-              };
-            }}
-            className={lightsOff ? "lights-on-player" : ""}
-          />
+            };
+          }}
+        />
 
-          {/* Skip notification */}
-          {skipNotification && (
-            <div className="absolute top-8 right-8 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg transition-all duration-300 animate-in fade-in-0 slide-in-from-right-5">
-              <div className="flex items-center gap-2">
-                <SkipForward className="h-4 w-4" />
-                <span>Skipping {skipNotification}...</span>
-              </div>
+        {/* Skip notification */}
+        {skipNotification && (
+          <div className="absolute top-8 right-8 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg transition-all duration-300 animate-in fade-in-0 slide-in-from-right-5">
+            <div className="flex items-center gap-2">
+              <SkipForward className="h-4 w-4" />
+              <span>Skipping {skipNotification}...</span>
             </div>
-          )}
-
-          {/* Auto-skip controls */}
-          <div className="absolute top-4 right-4 flex gap-2">
-            <button
-              onClick={() => {
-                setAutoskip(!autoskip);
-                localStorage.setItem('autoskip', (!autoskip).toString());
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-300 ${
-                autoskip 
-                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                  : 'bg-gray-800/75 hover:bg-gray-700/75 text-gray-200'
-              } backdrop-blur-md shadow-lg`}
-            >
-              <SkipForward className="h-4 w-4" />
-              Auto Skip {autoskip ? 'On' : 'Off'}
-            </button>
-            <button
-              onClick={() => {
-                setAutoNext(!autoNext);
-                localStorage.setItem('autoNext', (!autoNext).toString());
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-300 ${
-                autoNext 
-                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                  : 'bg-gray-800/75 hover:bg-gray-700/75 text-gray-200'
-              } backdrop-blur-md shadow-lg`}
-            >
-              <MonitorPlay className="h-4 w-4" />
-              Auto Next {autoNext ? 'On' : 'Off'}
-            </button>
           </div>
+        )}
 
-          {/* Manual skip buttons when auto-skip is off */}
-          {!autoskip && videoSrc?.intro && (
-            <button
-              onClick={handleSkipIntro}
-              className="absolute bottom-4 right-4 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 hover:bg-red-600 text-white transition-colors flex items-center gap-2 shadow-lg"
-            >
-              <SkipForward className="h-4 w-4" />
-              Skip Intro
-            </button>
-          )}
+        {/* Auto-skip controls */}
+        <div className="absolute top-4 right-4 flex gap-2">
+          <button
+            onClick={() => {
+              setAutoskip(!autoskip);
+              localStorage.setItem('autoskip', (!autoskip).toString());
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-300 ${
+              autoskip 
+                ? 'bg-red-500 hover:bg-red-600 text-white' 
+                : 'bg-gray-800/75 hover:bg-gray-700/75 text-gray-200'
+            } backdrop-blur-md shadow-lg`}
+          >
+            <SkipForward className="h-4 w-4" />
+            Auto Skip {autoskip ? 'On' : 'Off'}
+          </button>
+          <button
+            onClick={() => {
+              setAutoNext(!autoNext);
+              localStorage.setItem('autoNext', (!autoNext).toString());
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-300 ${
+              autoNext 
+                ? 'bg-red-500 hover:bg-red-600 text-white' 
+                : 'bg-gray-800/75 hover:bg-gray-700/75 text-gray-200'
+            } backdrop-blur-md shadow-lg`}
+          >
+            <MonitorPlay className="h-4 w-4" />
+            Auto Next {autoNext ? 'On' : 'Off'}
+          </button>
         </div>
+
+        {/* Manual skip buttons when auto-skip is off */}
+        {!autoskip && videoSrc?.intro && (
+          <button
+            onClick={handleSkipIntro}
+            className="absolute bottom-4 right-4 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 hover:bg-red-600 text-white transition-colors flex items-center gap-2 shadow-lg"
+          >
+            <SkipForward className="h-4 w-4" />
+            Skip Intro
+          </button>
+        )}
+      </div>
     );
   };
 
   // Save watch progress
   const saveWatchProgress = (timestamp: number) => {
     if (!animeInfo?.info || !currentEpisodeId || !currentEpisodeNumber) return
-
-    console.log('Saving watch progress:', {
-      animeId: id,
-      episodeId: currentEpisodeId,
-      timestamp,
-      title: animeInfo.info.name
-    });
 
     const progress: WatchProgress = {
       animeId: id as string,
@@ -1757,56 +1568,56 @@ export default function WatchPage() {
                 {gridViewMode === "thumbnail" && (
                   <div className="grid grid-cols-1 gap-2">
                     {paginatedEpisodes.map((episode) => {
-                      const episodeNumber = episode.episodeId.split('?ep=')[1];
-                      const isCurrentEpisode = currentEpisodeId === episodeNumber;
-                    
-                      return (
-                        <button
-                          key={episode.episodeId}
-                          onClick={() => handleEpisodeChange(episodeNumber)}
-                          className={cn(
-                            "group w-full p-2 flex gap-3 rounded transition-colors h-[80px]",
-                            isCurrentEpisode 
-                              ? "bg-red-500/10" 
-                              : "hover:bg-white/[0.02]"
-                          )}
-                        >
-                          <div className="relative w-[120px] aspect-video rounded overflow-hidden bg-black/20">
-                            <img 
-                              src={animeInfo.info.img} 
-                              alt={`Episode ${episode.number}`}
-                              className="w-full h-full object-cover"
-                            />
-                            {isCurrentEpisode && (
-                              <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
-                                <Play className="h-6 w-6 text-white" />
-                              </div>
-                            )}
+                const episodeNumber = episode.episodeId.split('?ep=')[1];
+                  const isCurrentEpisode = currentEpisodeId === episodeNumber;
+                
+                return (
+                  <button
+                    key={episode.episodeId}
+                    onClick={() => handleEpisodeChange(episodeNumber)}
+                      className={cn(
+                        "group w-full p-2 flex gap-3 rounded transition-colors h-[80px]",
+                        isCurrentEpisode 
+                          ? "bg-red-500/10" 
+                          : "hover:bg-white/[0.02]"
+                      )}
+                    >
+                      <div className="relative w-[120px] aspect-video rounded overflow-hidden bg-black/20">
+                        <img 
+                          src={animeInfo.info.img} 
+                          alt={`Episode ${episode.number}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {isCurrentEpisode && (
+                          <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+                            <Play className="h-6 w-6 text-white" />
                           </div>
+                      )}
+                    </div>
 
-                          <div className="flex-1 min-w-0 text-left">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className={cn(
-                                "text-sm font-medium",
-                                isCurrentEpisode ? "text-red-500" : "text-white/90"
-                              )}>
-                              Episode {episode.number}
-                              </span>
-                              {episode.isFiller && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/5 text-white/40">
-                                  FILLER
-                                </span>
-                              )}
-                            </div>
-                            {episode.title && (
-                              <p className="text-xs text-white/60 line-clamp-2">
-                                {episode.title}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={cn(
+                            "text-sm font-medium",
+                            isCurrentEpisode ? "text-red-500" : "text-white/90"
+                          )}>
+                        Episode {episode.number}
+                          </span>
+                          {episode.isFiller && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/5 text-white/40">
+                              FILLER
+                            </span>
+                          )}
+                        </div>
+                        {episode.title && (
+                          <p className="text-xs text-white/60 line-clamp-2">
+                            {episode.title}
+                          </p>
+                        )}
+                    </div>
+                  </button>
+                  );
+              })}
                   </div>
                 )}
 
@@ -1916,7 +1727,7 @@ export default function WatchPage() {
                     </button>
                   </div>
                 )}
-              </div>
+            </div>
             </ScrollArea>
           </div>
         </div>
@@ -1952,26 +1763,26 @@ export default function WatchPage() {
                     </button>
                   )}
                   {availableCategories.includes("sub") && (
-                    <button
-                      onClick={() => setCategory("sub")}
-                      className={cn(
-                        "px-3 py-1.5 rounded text-sm font-medium transition-colors",
-                        category === "sub" ? "bg-red-500" : "bg-white/5 hover:bg-white/10"
-                      )}
-                    >
-                      SUB
-                    </button>
+                  <button
+                    onClick={() => setCategory("sub")}
+                    className={cn(
+                      "px-3 py-1.5 rounded text-sm font-medium transition-colors",
+                      category === "sub" ? "bg-red-500" : "bg-white/5 hover:bg-white/10"
+                    )}
+                  >
+                    SUB
+                  </button>
                   )}
                   {availableCategories.includes("dub") && (
-                    <button
-                      onClick={() => setCategory("dub")}
-                      className={cn(
-                        "px-3 py-1.5 rounded text-sm font-medium transition-colors",
-                        category === "dub" ? "bg-red-500" : "bg-white/5 hover:bg-white/10"
-                      )}
-                    >
-                      DUB
-                    </button>
+                  <button
+                    onClick={() => setCategory("dub")}
+                    className={cn(
+                      "px-3 py-1.5 rounded text-sm font-medium transition-colors",
+                      category === "dub" ? "bg-red-500" : "bg-white/5 hover:bg-white/10"
+                    )}
+                  >
+                    DUB
+                  </button>
                   )}
                 </div>
               </div>
