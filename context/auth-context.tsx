@@ -58,18 +58,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Function to exchange authorization code for access token
   const getAccessToken = async (code: string): Promise<string> => {
     try {
-      const response = await fetch("https://anilist.co/api/v2/oauth/token", {
+      // Use our server API endpoint instead of direct AniList request
+      const response = await fetch("/api/auth/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({
-          grant_type: "authorization_code",
-          client_id: ANILIST_CLIENT_ID,
-          redirect_uri: ANILIST_REDIRECT_URI,
-          code: code,
-        }),
+        body: JSON.stringify({ code }),
       })
 
       if (!response.ok) {
@@ -222,14 +218,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const loginWithAniList = async (code: string): Promise<void> => {
     setIsLoading(true)
     try {
+      console.log("Starting AniList login process")
+      
       // Exchange code for token
       const token = await getAccessToken(code)
+      console.log("Token obtained successfully")
       
       // Get user profile
       const profile = await getUserProfile(token)
+      console.log("User profile retrieved")
       
       // Get user favorites
       const favorites = await getUserFavorites(token)
+      console.log("User favorites retrieved")
 
       // Create user object
       const newUser: User = {
@@ -241,9 +242,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         favorites,
       }
 
+      console.log("User object created, saving to state and localStorage")
+      
       // Update state and save to localStorage
       setUser(newUser)
       localStorage.setItem("user", JSON.stringify(newUser))
+      console.log("Login process completed successfully")
     } catch (error) {
       console.error("AniList login error:", error)
       throw error
