@@ -55,9 +55,22 @@ export async function GET(request: NextRequest) {
         const contentType = response.headers.get('content-type') || '';
         console.log(`Content type: ${contentType} for ${url}`);
 
-        // Create response headers
+        // Create response headers with strong CORS headers
         const responseHeaders = new Headers();
-        responseHeaders.set('Content-Type', contentType);
+        
+        // Set proper content type based on file extension if not detected correctly
+        let detectedContentType = contentType;
+        if (!contentType || contentType === 'application/octet-stream') {
+            if (url.toLowerCase().includes('.m3u8')) {
+                detectedContentType = 'application/vnd.apple.mpegurl';
+                console.log('Content type not specified, using m3u8 based on URL extension');
+            } else if (url.toLowerCase().includes('.ts')) {
+                detectedContentType = 'video/mp2t';
+                console.log('Content type not specified, using ts based on URL extension');
+            }
+        }
+        
+        responseHeaders.set('Content-Type', detectedContentType);
         responseHeaders.set('Access-Control-Allow-Origin', '*');
         responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
         responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Range');
@@ -83,8 +96,8 @@ export async function GET(request: NextRequest) {
         });
 
         // Process m3u8 files to correct segment URLs
-        if (contentType.includes('application/vnd.apple.mpegurl') || 
-            contentType.includes('application/x-mpegurl') || 
+        if (detectedContentType.includes('application/vnd.apple.mpegurl') || 
+            detectedContentType.includes('application/x-mpegurl') || 
             url.toLowerCase().includes('.m3u8')) {
             
             console.log('Processing m3u8 file');
@@ -118,7 +131,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Handle video segments (ts files) - use streaming and cache them
-        if (url.toLowerCase().includes('.ts') || contentType.includes('video/mp2t')) {
+        if (url.toLowerCase().includes('.ts') || detectedContentType.includes('video/mp2t')) {
             console.log('Streaming TS segment');
             const stream = response.body;
             if (!stream) {
@@ -135,7 +148,7 @@ export async function GET(request: NextRequest) {
 
         // Handle range requests for video streaming
         const range = request.headers.get('range');
-        if (range && (contentType.includes('video/') || contentType.includes('audio/'))) {
+        if (range && (detectedContentType.includes('video/') || detectedContentType.includes('audio/'))) {
             console.log('Processing range request:', range);
             const contentLength = response.headers.get('content-length');
             if (!contentLength) {
