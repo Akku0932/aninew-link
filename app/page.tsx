@@ -31,8 +31,9 @@ export default function Home() {
 
   return (
     <div className="flex flex-col">
+      <SpotlightCarousel />
       {continueWatching.length > 0 && (
-        <section className="mb-12">
+        <section className="mb-12 mt-8">
           <h2 className="text-2xl font-bold mb-6">Continue Watching</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {continueWatching.map((item) => (
@@ -64,7 +65,6 @@ export default function Home() {
           </div>
         </section>
       )}
-      <SpotlightCarousel />
       <RecentlyWatched />
       <TrendingAnime />
       <div className="grid grid-cols-1 lg:grid-cols-4">
@@ -73,7 +73,6 @@ export default function Home() {
         </div>
         <div>
           <TopTenAnime />
-
         </div>
       </div>
     </div>
