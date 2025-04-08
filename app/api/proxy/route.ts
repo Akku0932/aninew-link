@@ -42,6 +42,8 @@ export async function GET(request: NextRequest) {
             headers,
             redirect: 'follow',
             signal: controller.signal,
+            credentials: 'omit', // Don't send cookies with the request
+            mode: 'cors', // Explicitly request CORS
         }).finally(() => clearTimeout(timeoutId));
 
         if (!response.ok) {
@@ -55,13 +57,15 @@ export async function GET(request: NextRequest) {
         const contentType = response.headers.get('content-type') || '';
         console.log(`Content type: ${contentType} for ${url}`);
 
-        // Create response headers
+        // Create response headers with strong CORS headers
         const responseHeaders = new Headers();
         responseHeaders.set('Content-Type', contentType);
         responseHeaders.set('Access-Control-Allow-Origin', '*');
-        responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Range');
-        responseHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+        responseHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Range, Origin, Referer, User-Agent');
+        responseHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type');
+        responseHeaders.set('Access-Control-Max-Age', '86400');
+        responseHeaders.set('X-Content-Type-Options', 'nosniff');
         
         // Copy important headers from the original response
         const headersToCopy = [
@@ -112,7 +116,12 @@ export async function GET(request: NextRequest) {
                 }
             });
             
-            return new NextResponse(modifiedText, { 
+            // Also rewrite any absolute URLs in the file to use our proxy
+            const finalText = modifiedText.replace(/(https?:\/\/[^\s"']+\.ts)/g, (match) => {
+                return `/api/proxy?url=${encodeURIComponent(match)}`;
+            });
+            
+            return new NextResponse(finalText, { 
                 headers: responseHeaders
             });
         }
@@ -191,9 +200,9 @@ export async function GET(request: NextRequest) {
 export async function OPTIONS(request: NextRequest) {
     const headers = new Headers();
     headers.set('Access-Control-Allow-Origin', '*');
-    headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    headers.set('Access-Control-Allow-Headers', 'Content-Type, Range');
-    headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+    headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Range, Origin, Referer, User-Agent');
+    headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type');
     headers.set('Access-Control-Max-Age', '86400');
 
     return new NextResponse(null, { status: 204, headers });
