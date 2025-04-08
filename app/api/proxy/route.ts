@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
             'Accept': '*/*',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
-            'Origin': request.headers.get('origin') || '',
-            'Referer': request.headers.get('referer') || '',
+            'Origin': request.headers.get('origin') || 'https://www.aninew.linkpc.net',
+            'Referer': request.headers.get('referer') || 'https://www.aninew.linkpc.net/',
         });
 
         // Forward the request with longer timeout
@@ -71,10 +71,14 @@ export async function GET(request: NextRequest) {
         }
         
         responseHeaders.set('Content-Type', detectedContentType);
+        
+        // Set strong CORS headers - be explicit about the origin
         responseHeaders.set('Access-Control-Allow-Origin', '*');
-        responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Range');
-        responseHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+        responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+        responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Range, Origin, Referer');
+        responseHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type');
+        responseHeaders.set('Access-Control-Max-Age', '86400');
+        responseHeaders.set('Timing-Allow-Origin', '*');
         
         // Copy important headers from the original response
         const headersToCopy = [
@@ -235,9 +239,6 @@ export async function GET(request: NextRequest) {
                     const absoluteUrl = new URL(match, baseUrlPath).href;
                     console.log('Rewriting segment URL:', match, 'to', absoluteUrl);
                     
-                    // If this is an m3u8 variant, make sure we add proxy
-                    const isVariant = match.toLowerCase().endsWith('.m3u8');
-                    
                     // Use proxy for the absolute URL
                     return `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
                 } catch (error) {
@@ -247,7 +248,6 @@ export async function GET(request: NextRequest) {
             });
             
             // Also rewrite absolute URLs in the file to use our proxy 
-            // Handle both m3u8 and ts files
             modifiedText = modifiedText.replace(/(https?:\/\/[^\s"'\r\n]+\.(?:ts|m3u8|m4s|aac|m4a|mp4|m4v))/g, (match) => {
                 console.log('Rewriting absolute URL:', match);
                 return `/api/proxy?url=${encodeURIComponent(match)}`;
@@ -265,111 +265,23 @@ export async function GET(request: NextRequest) {
             console.log('Processed playlist preview:', processedLines.join('\n'));
             
             // Set Cache-Control header to prevent caching issues
-            responseHeaders.set('Cache-Control', 'no-cache');
+            responseHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+            responseHeaders.set('Pragma', 'no-cache');
             
             return new NextResponse(modifiedText, { 
                 headers: responseHeaders
             });
         }
 
-        // Handle video segments (ts files) - use streaming and cache them
-        if (url.toLowerCase().includes('.ts') || detectedContentType.includes('video/mp2t')) {
-            console.log('Processing TS segment from URL:', url);
+        // For all other files, just return the response
+        const buffer = await response.arrayBuffer();
+        
+        // Add caching headers for better performance
+        responseHeaders.set('Cache-Control', 'public, max-age=300');
             
-            // For TS segments, we need to ensure they're properly formatted
-            // Get the binary data first
-            const buffer = await response.arrayBuffer();
-            
-            // Verify this is actually a valid TS segment (should start with specific sync byte)
-            // TS segments should start with 0x47 (71 in decimal, 'G' in ASCII)
-            const firstByte = new Uint8Array(buffer)[0];
-            const isValidTSSegment = firstByte === 0x47;
-            
-            console.log('TS segment analysis:', {
-                size: buffer.byteLength,
-                firstByte: firstByte,
-                isValidTSSegment,
-                contentType: detectedContentType
-            });
-            
-            if (!isValidTSSegment) {
-                console.warn('Invalid TS segment detected, attempting repair');
-                
-                // If it's not a valid TS segment but supposed to be one,
-                // try to determine if it's a different format
-                const fourCCBytes = buffer.byteLength > 8 ? new Uint8Array(buffer, 0, 8) : new Uint8Array(buffer);
-                const fourCCString = Array.from(fourCCBytes)
-                    .map(byte => String.fromCharCode(byte))
-                    .join('');
-                    
-                console.log('Potential format signature:', fourCCString);
-                
-                // Check for MP4 signature (ftyp...)
-                if (fourCCString.includes('ftyp')) {
-                    console.log('Detected MP4 container instead of TS, adjusting content type');
-                    responseHeaders.set('Content-Type', 'video/mp4');
-                } 
-                // Check for WebM signature (it usually starts with 0x1A 0x45 0xDF 0xA3)
-                else if (fourCCBytes[0] === 0x1A && fourCCBytes[1] === 0x45 && fourCCBytes[2] === 0xDF && fourCCBytes[3] === 0xA3) {
-                    console.log('Detected WebM container instead of TS, adjusting content type');
-                    responseHeaders.set('Content-Type', 'video/webm');
-                } 
-                // Fallback - force the content type to be mp2t anyway
-                else {
-                    console.log('Unknown format, forcing video/mp2t content type');
-                    responseHeaders.set('Content-Type', 'video/mp2t');
-                }
-            } else {
-                // It's a valid TS segment - ensure proper content type
-                responseHeaders.set('Content-Type', 'video/mp2t');
-            }
-            
-            // Add caching headers for better performance regardless of format
-            responseHeaders.set('Cache-Control', 'public, max-age=31536000');
-            
-            return new NextResponse(buffer, {
-                headers: responseHeaders
-            });
-        }
-
-        // Handle range requests for video streaming
-        const range = request.headers.get('range');
-        if (range && (detectedContentType.includes('video/') || detectedContentType.includes('audio/'))) {
-            console.log('Processing range request:', range);
-            const contentLength = response.headers.get('content-length');
-            if (!contentLength) {
-                return new NextResponse('Content-Length header missing', { status: 500 });
-            }
-
-            const size = parseInt(contentLength, 10);
-            const parts = range.replace(/bytes=/, '').split('-');
-            const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : size - 1;
-            const chunksize = end - start + 1;
-
-            responseHeaders.set('Content-Range', `bytes ${start}-${end}/${size}`);
-            responseHeaders.set('Content-Length', chunksize.toString());
-            responseHeaders.set('Accept-Ranges', 'bytes');
-
-            const stream = response.body;
-            if (!stream) {
-                return new NextResponse('Stream not available', { status: 500 });
-            }
-
-            return new NextResponse(stream, {
-                status: 206,
-                headers: responseHeaders,
-            });
-        }
-
-        // For non-range requests, stream the response
-        console.log('Streaming regular response');
-        const stream = response.body;
-        if (!stream) {
-            return new NextResponse('Stream not available', { status: 500 });
-        }
-
-        return new NextResponse(stream, { headers: responseHeaders });
+        return new NextResponse(buffer, {
+            headers: responseHeaders
+        });
     } catch (error: unknown) {
         console.error('Proxy error:', error);
         // More detailed error message
@@ -390,10 +302,11 @@ export async function GET(request: NextRequest) {
 export async function OPTIONS(request: NextRequest) {
     const headers = new Headers();
     headers.set('Access-Control-Allow-Origin', '*');
-    headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    headers.set('Access-Control-Allow-Headers', 'Content-Type, Range');
-    headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+    headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Range, Origin, Referer');
+    headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type');
     headers.set('Access-Control-Max-Age', '86400');
+    headers.set('Timing-Allow-Origin', '*');
 
     return new NextResponse(null, { status: 204, headers });
 }
