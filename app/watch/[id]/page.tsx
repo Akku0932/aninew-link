@@ -36,16 +36,15 @@ type AnimeInfo = {
     duration: string
     sub: number | null
     dub: number | null
+    raw?: number | null
     eps: number
     pg?: string
     quality?: string
-    rate?: string
   }
   otherInfo?: {
     genres?: string[]
     status?: string
     recommendations?: { id: string; img: string; name: string; type: string }[]
-    malScore?: string
   }
 }
 
@@ -336,13 +335,7 @@ export default function WatchPage() {
     const savedAutoNext = localStorage.getItem('autoNext');
 
     if (savedWatchProgress) {
-      try {
-        const parsedProgress = JSON.parse(savedWatchProgress);
-        setWatchProgress(parsedProgress);
-      } catch (error) {
-        console.error('Error parsing watch progress:', error);
-        setWatchProgress([]);
-      }
+      setWatchProgress(JSON.parse(savedWatchProgress));
     }
     if (savedAutoskip) {
       setAutoskip(savedAutoskip === 'true');
@@ -381,12 +374,12 @@ export default function WatchPage() {
       });
       
       // Check all categories availability
-      const categoriesToCheck: ("sub" | "dub" | "raw")[] = ["sub", "dub", "raw"];
+      const categoriesToCheck: ("sub" | "dub" | "raw")[] = ["raw", "sub", "dub"];
       const availableCats: ("sub" | "dub" | "raw")[] = [];
       
       for (const cat of categoriesToCheck) {
         try {
-      const response = await fetch(
+          const response = await fetch(
             `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${cat}&server=${selectedServer}`,
             {
               method: "GET",
@@ -409,23 +402,16 @@ export default function WatchPage() {
       
       setAvailableCategories(availableCats);
       
-      // Set default category based on availability
-      let currentCategory = category;
-      if (availableCats.includes("sub")) {
-        currentCategory = "sub";
-      } else if (availableCats.includes("dub")) {
-        currentCategory = "dub";
-      } else if (availableCats.includes("raw")) {
-        currentCategory = "raw";
-      } else if (availableCats.length > 0) {
-        currentCategory = availableCats[0];
+      // If raw is available, select it by default
+      if (availableCats.includes("raw")) {
+        setCategory("raw");
+      } else if (!availableCats.includes(category) && availableCats.length > 0) {
+        setCategory(availableCats[0]);
       }
-      
-      setCategory(currentCategory);
       
       // Fetch the selected category's source
       const response = await fetch(
-        `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${currentCategory}&server=${selectedServer}`,
+        `https://aninew-seven.vercel.app/episode-srcs?id=${animeId}&ep=${episodeId}&category=${category}&server=${selectedServer}`,
         {
           method: "GET",
           headers: {
@@ -435,13 +421,13 @@ export default function WatchPage() {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch ${currentCategory} source`);
+        throw new Error(`Failed to fetch ${category} source`);
       }
       
       const data = await response.json();
       
       if (!data.sources?.length) {
-        throw new Error(`No video sources found for ${currentCategory}`);
+        throw new Error(`No video sources found for ${category}`);
       }
 
       // Set video source with all available data
@@ -457,7 +443,7 @@ export default function WatchPage() {
         label: track.label,
         default: track.default || track.label.toLowerCase().includes('english')
         })) || [],
-        audio: currentCategory === 'raw' ? 'raw' : currentCategory === 'sub' ? 'jpn' : 'eng',
+        audio: category === 'raw' ? 'raw' : category === 'sub' ? 'jpn' : 'eng',
         quality: data.sources[0].quality
       };
 
@@ -490,99 +476,6 @@ export default function WatchPage() {
       fetchVideoSource(currentEpisodeId);
     }
   }, [currentEpisodeId, category])
-
-  // Track video progress and save to watch history
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video || !animeInfo) return
-
-    console.log('Setting up video progress tracking for', currentEpisodeId);
-
-    // Restore video position if available
-    const restoreVideoPosition = () => {
-      console.log('Attempting to restore video position');
-      const savedProgress = watchProgress.find(p => p.animeId === id && p.episodeId === currentEpisodeId)
-      if (savedProgress && video && video.readyState >= 2) {
-        console.log('Restoring video position to', savedProgress.timestamp);
-        video.currentTime = savedProgress.timestamp
-        return true
-      }
-      return false
-    }
-
-    // Try to restore position immediately if video is ready
-    const restored = restoreVideoPosition()
-
-    // If not ready, set up event listeners for when it becomes ready
-    if (!restored) {
-      const handleCanPlay = () => {
-        const success = restoreVideoPosition()
-        if (success) {
-          console.log('Position restored on canplay event')
-          video.removeEventListener('canplay', handleCanPlay)
-        }
-      }
-      video.addEventListener('canplay', handleCanPlay)
-      
-      // Also try when loaded data is available
-      const handleLoadedData = () => {
-        const success = restoreVideoPosition()
-        if (success) {
-          console.log('Position restored on loadeddata event')
-          video.removeEventListener('loadeddata', handleLoadedData)
-        }
-      }
-      video.addEventListener('loadeddata', handleLoadedData)
-    }
-
-    const updateProgress = () => {
-      const currentTime = video.currentTime
-      const duration = video.duration
-
-      if (duration > 0 && currentTime > 0) {
-        const progress = Math.floor((currentTime / duration) * 100)
-        setVideoProgress(progress)
-
-        // Save to watch history
-        if (currentEpisodeId) {
-          const currentEpisodeObj = episodes.find((ep) => {
-            const epIdParts = ep.episodeId.split("?ep=")
-            const epId = epIdParts.length > 1 ? epIdParts[1] : epIdParts[0]
-            return epId === currentEpisodeId
-          })
-          const episodeNumber = currentEpisodeObj ? currentEpisodeObj.number : 1
-
-          // Save to both watch history and progress
-          saveToWatchHistory({
-            id: id as string,
-            title: animeInfo.info.name,
-            image: animeInfo.info.img,
-            episode: episodeNumber,
-            episodeId: currentEpisodeId,
-            progress: progress,
-            totalEpisodes: animeInfo.info.eps || episodes.length,
-            timestamp: Date.now(),
-          })
-
-          // Only save if we've watched at least 3 seconds
-          if (currentTime > 3) {
-            saveWatchProgress(currentTime)
-          }
-        }
-      }
-    }
-
-    // Update every 5 seconds and on timeupdate
-    const interval = setInterval(updateProgress, 5000)
-    video.addEventListener("timeupdate", updateProgress)
-
-    return () => {
-      clearInterval(interval)
-      video.removeEventListener("timeupdate", updateProgress)
-      video.removeEventListener("canplay", restoreVideoPosition)
-      video.removeEventListener("loadeddata", restoreVideoPosition)
-    }
-  }, [videoSrc, animeInfo, id, currentEpisodeId, episodes, watchProgress])
 
   // Handle time update for saving progress
   const handleProgressUpdate = () => {
@@ -686,6 +579,57 @@ export default function WatchPage() {
       }
     }
   }, [videoSrc])
+
+  // Track video progress and save to watch history
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !animeInfo) return
+
+    const updateProgress = () => {
+      const currentTime = video.currentTime
+      const duration = video.duration
+
+      if (duration > 0) {
+        const progress = Math.floor((currentTime / duration) * 100)
+        setVideoProgress(progress)
+
+        // Save to watch history more frequently for better "resume watching" experience
+        if (currentTime > 30 && currentEpisodeId) {
+          const currentEpisodeObj = episodes.find((ep) => {
+            const epIdParts = ep.episodeId.split("?ep=")
+            const epId = epIdParts.length > 1 ? epIdParts[1] : epIdParts[0]
+            return epId === currentEpisodeId
+          })
+          const episodeNumber = currentEpisodeObj ? currentEpisodeObj.number : 1
+
+          saveToWatchHistory({
+            id: id as string,
+            title: animeInfo.info.name,
+            image: animeInfo.info.img,
+            episode: episodeNumber,
+            episodeId: currentEpisodeId,
+            progress: progress,
+            totalEpisodes: animeInfo.info.eps || episodes.length,
+            timestamp: Date.now(),
+          })
+        }
+      }
+    }
+
+    // Update more frequently (every 3 seconds instead of 5)
+    const interval = setInterval(updateProgress, 3000)
+    video.addEventListener("timeupdate", updateProgress)
+    
+    // Also save on pause to capture exact stopping point
+    const handlePause = () => updateProgress();
+    video.addEventListener("pause", handlePause);
+
+    return () => {
+      clearInterval(interval)
+      video.removeEventListener("timeupdate", updateProgress)
+      video.removeEventListener("pause", handlePause)
+    }
+  }, [videoSrc, animeInfo, id, currentEpisodeId, episodes])
 
   // Handle video time update for intro/outro skipping
   const handleTimeUpdate = () => {
@@ -978,11 +922,6 @@ export default function WatchPage() {
               
               const currentTime = art.currentTime;
               const video = art.template.$video;
-                
-                // Save playback position for continue watching
-                if (currentTime > 3 && animeInfo?.info) {
-                  saveWatchProgress(currentTime);
-                }
               
               // Handle intro skip
               if (autoskip && videoSrc.intro && 
@@ -1034,27 +973,6 @@ export default function WatchPage() {
               }
             });
 
-              // When video is loaded, restore position if available
-              art.on('ready', () => {
-                // Find saved progress for this episode
-                const savedProgress = watchProgress.find(p => 
-                  p.animeId === id && p.episodeId === currentEpisodeId
-                );
-                
-                // Restore position if found
-                if (savedProgress && savedProgress.timestamp > 0) {
-                  console.log('Restoring position to', savedProgress.timestamp);
-                  art.seek = savedProgress.timestamp;
-                  
-                  // Show a toast notification
-                  toast({
-                    title: "Resuming Playback",
-                    description: `Resuming from ${Math.floor(savedProgress.timestamp / 60)}:${String(Math.floor(savedProgress.timestamp % 60)).padStart(2, '0')}`,
-                    duration: 3000,
-                  });
-                }
-              });
-
             // Set up ended event for auto-next
             art.on('video:ended', () => {
               console.log('Video ended, checking for next episode');
@@ -1095,7 +1013,6 @@ export default function WatchPage() {
             return () => {
               art.off('video:timeupdate');
               art.off('video:ended');
-                art.off('ready');
             };
           }}
         />
@@ -1174,23 +1091,11 @@ export default function WatchPage() {
     const newProgress = [
       progress,
       ...watchProgress.filter(p => 
-        p.animeId !== id || p.episodeId !== currentEpisodeId
-      ).slice(0, 19)
+        p.animeId !== id || p.episodeId !== currentEpisodeId).slice(0, 19)
     ]
 
     setWatchProgress(newProgress)
-    
-    // Save to localStorage and dispatch event to notify other components
     localStorage.setItem('watchProgress', JSON.stringify(newProgress))
-    
-    // Dispatch custom event to notify Home component about the change
-    if (typeof window !== 'undefined') {
-      try {
-        window.dispatchEvent(new Event('watchProgressUpdated'))
-      } catch (error) {
-        console.error('Error dispatching watchProgressUpdated event:', error)
-      }
-    }
   }
 
   const saveToWatchHistory = (watchData: WatchedAnime) => {
@@ -1871,14 +1776,6 @@ export default function WatchPage() {
                     <span className="text-sm text-white/60">Status:</span>
                     <span className="text-sm text-white/90">{animeInfo?.otherInfo?.status || "Unknown"}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-white/60">Rating:</span>
-                    <span className="text-sm text-white/90">{animeInfo?.info?.rate || "Unknown"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-white/60">Score:</span>
-                    <span className="text-sm text-white/90">{animeInfo?.otherInfo?.malScore || "N/A"}</span>
-                  </div>
                 </div>
               </div>
               
@@ -1895,37 +1792,68 @@ export default function WatchPage() {
                   ))}
                 </div>
               </div>
+              
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium text-white/60">Audio</h4>
+                <div className="flex gap-1.5">
+                  {animeInfo?.info?.sub && (
+                    <span className="px-2 py-0.5 rounded text-xs bg-purple-500/20 text-purple-300">
+                      SUB
+                    </span>
+                  )}
+                  {animeInfo?.info?.dub && (
+                    <span className="px-2 py-0.5 rounded text-xs bg-orange-500/20 text-orange-300">
+                      DUB
+                    </span>
+                  )}
+                  {animeInfo?.info?.raw && (
+                    <span className="px-2 py-0.5 rounded text-xs bg-blue-500/20 text-blue-300">
+                      RAW
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           
           {/* Recommended Anime Box */}
           <div className="col-span-1 bg-[#141414] rounded-lg border border-white/[0.08] p-4">
-            <h3 className="text-sm font-medium text-white/80 mb-3">Recommended</h3>
-            <div className="space-y-3">
-              {recommendedAnime.slice(0, 5).map((anime) => (
-                <Link
-                  key={anime.id}
-                  href={`/watch/${anime.id}`}
-                  className="group flex gap-2 items-center"
-                >
-                  <div className="relative w-16 h-20 rounded overflow-hidden">
-                    <Image
-                      src={anime.img || "/placeholder.svg"}
-                      alt={anime.name}
-                      fill
-                      className="object-cover transition-transform group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium text-white/90 line-clamp-2 group-hover:text-white transition-colors">
-                      {anime.name}
-                    </h4>
-                    <p className="text-xs text-white/60">
-                      {anime.type}
-                    </p>
-                  </div>
-                </Link>
-              ))}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-white/80">Recommended Anime</h3>
+              <Link 
+                href={`/info/${id}?tab=recommended`}
+                className="text-xs text-white/60 hover:text-white/90 transition-colors flex items-center gap-1"
+              >
+                <span>View All</span>
+                <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {recommendedAnime.length > 0 ? (
+                recommendedAnime.slice(0, 4).map((rec, index) => (
+                  <Link 
+                    key={index} 
+                    href={`/watch/${rec.id}`}
+                    className="flex items-center gap-2 p-1.5 rounded hover:bg-white/5 transition-colors group"
+                  >
+                    <div className="relative w-12 h-16 rounded overflow-hidden">
+                      <Image 
+                        src={rec.img} 
+                        alt={rec.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-white/90 truncate group-hover:text-white transition-colors">{rec.name}</h4>
+                      <p className="text-xs text-white/60 truncate">{rec.type}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-white/40 group-hover:text-white/60 transition-colors" />
+                  </Link>
+                ))
+              ) : (
+                <p className="text-sm text-white/60 text-center py-4">No recommendations available</p>
+              )}
             </div>
           </div>
         </div>
