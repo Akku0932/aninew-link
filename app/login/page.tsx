@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-const ANILIST_CLIENT_ID = "15054";
+const ANILIST_CLIENT_ID = "25870";
 const ANILIST_REDIRECT_URI = "https://aninew-link.vercel.app/auth/callback";
 
 export default function LoginPage() {

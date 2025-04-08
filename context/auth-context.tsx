@@ -31,7 +31,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const ANILIST_CLIENT_ID = "15054"
+const ANILIST_CLIENT_ID = "25870"
 const ANILIST_REDIRECT_URI = "https://aninew-link.vercel.app/auth/callback"
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
