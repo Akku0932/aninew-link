@@ -38,9 +38,14 @@ export async function POST(request: Request) {
     }
 
     console.log(`Making token request to AniList with redirect URI: ${ANILIST_REDIRECT_URI}`);
+    
+    // Use the correct API endpoint URL format for AniList
+    // AniList API documentation specifies https://graphql.anilist.co/api/v2/oauth/token
+    const tokenEndpoint = "https://graphql.anilist.co/api/v2/oauth/token";
+    console.log(`Using token endpoint: ${tokenEndpoint}`);
 
     // Server-to-server request to AniList token endpoint
-    const response = await fetch("https://anilist.co/api/v2/oauth/token", {
+    const response = await fetch(tokenEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
