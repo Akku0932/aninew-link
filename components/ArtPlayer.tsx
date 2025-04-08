@@ -1,11 +1,8 @@
 "use client"
 
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import Artplayer from 'artplayer';
 import Hls from 'hls.js';
-
-// Check if HLS is supported by the browser
-const hlsSupported = typeof window !== 'undefined' && Hls.isSupported();
 
 interface ArtPlayerProps {
     options: {
@@ -24,113 +21,6 @@ interface ArtPlayerProps {
     getInstance?: (art: Artplayer) => void;
     className?: string;
 }
-
-// Create a separate HLS loader function with error handling
-const loadHlsSource = (video: HTMLVideoElement, url: string, art: any) => {
-    if (hlsSupported) {
-        // Always use the proxy for external video URLs
-        const proxyUrl = url.startsWith('/api/proxy') ? url : `/api/proxy?url=${encodeURIComponent(url)}`;
-        console.log('Loading HLS source with proxy URL:', proxyUrl);
-        
-        const hls = new Hls({
-            // Basic configuration
-            autoStartLoad: true,
-            startLevel: -1,
-            debug: false,
-            
-            // Enhanced settings for better reliability
-            maxBufferLength: 30,
-            maxMaxBufferLength: 600,
-            maxBufferSize: 60 * 1000 * 1000, // 60MB
-            fragLoadingMaxRetry: 6,
-            manifestLoadingMaxRetry: 6,
-            levelLoadingMaxRetry: 6,
-            fragLoadingRetryDelay: 1000,
-            manifestLoadingRetryDelay: 1000,
-            levelLoadingRetryDelay: 1000,
-            
-            // More lenient error handling
-            fragLoadingMaxRetryTimeout: 10000,
-            manifestLoadingMaxRetryTimeout: 10000,
-            levelLoadingMaxRetryTimeout: 10000,
-            
-            // Handle CORS issues with xhrSetup
-            xhrSetup: function(xhr, loadUrl) {
-                if (!loadUrl.startsWith('/api/proxy') && !loadUrl.includes('data:')) {
-                    // Cancel the original request
-                    xhr.abort();
-                    
-                    // Open a new request to the proxy
-                    const encodedUrl = encodeURIComponent(loadUrl);
-                    xhr.open('GET', `/api/proxy?url=${encodedUrl}`, true);
-                }
-            }
-        });
-        
-        // Add error handling
-        hls.on(Hls.Events.ERROR, function(event, data) {
-            console.warn('HLS error:', data.type, data.details);
-            
-            if (data.fatal) {
-                switch(data.type) {
-                    case Hls.ErrorTypes.NETWORK_ERROR:
-                        console.error('Fatal network error', data);
-                        hls.startLoad(); // Try to recover
-                        break;
-                        
-                    case Hls.ErrorTypes.MEDIA_ERROR:
-                        console.error('Fatal media error', data);
-                        hls.recoverMediaError(); // Try to recover
-                        break;
-                        
-                    default:
-                        // For parsing errors or other fatal issues, fall back to direct playback
-                        console.error('Unrecoverable HLS error, falling back to direct playback', data);
-                        hls.destroy();
-                        
-                        // Try direct playback as fallback through proxy
-                        video.src = proxyUrl;
-                        video.play().catch(e => {
-                            console.error('Direct playback failed too:', e);
-                            
-                            // Notify the player about the error
-                            if (art && art.notice) {
-                                art.notice.show('Video playback error. Please try another server or episode.');
-                            }
-                        });
-                        break;
-                }
-            }
-        });
-        
-        // Setup HLS
-        try {
-            hls.loadSource(proxyUrl);
-            hls.attachMedia(video);
-        } catch (error) {
-            console.error('Error setting up HLS:', error);
-            // Try direct playback as fallback
-            video.src = proxyUrl;
-        }
-        
-        // Clean up on destroy
-        video.addEventListener('destroy', () => {
-            hls.destroy();
-        });
-        
-        return hls;
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // For Safari which has built-in HLS support, still use proxy
-        const proxyUrl = url.startsWith('/api/proxy') ? url : `/api/proxy?url=${encodeURIComponent(url)}`;
-        video.src = proxyUrl;
-        return null;
-    } else {
-        // Fallback for browsers without HLS support, still use proxy
-        const proxyUrl = url.startsWith('/api/proxy') ? url : `/api/proxy?url=${encodeURIComponent(url)}`;
-        video.src = proxyUrl;
-        return null;
-    }
-};
 
 export default function ArtPlayer({ options, getInstance, className, style }: ArtPlayerProps) {
     const artRef = useRef<HTMLDivElement>(null);
@@ -168,40 +58,74 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
             type: options.url.includes('.m3u8') ? 'customHls' : 'auto',
             customType: {
                 customHls: function (video: HTMLVideoElement, url: string) {
-                    hls = loadHlsSource(video, url, art);
-                    if (hls) {
-                        // Store HLS instance for quality switching
-                        art.hls = hls;
-                        
-                        // Add quality levels after manifest is loaded
-                        hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
-                            if (data.levels.length > 1) {
-                                const qualities = data.levels.map((level, index) => ({
-                                    html: `${level.height || index + 1}p`,
-                                    value: index,
-                                    desc: `${((level.bitrate / 1000) | 0)}kbps`
-                                }));
+                    if (Hls.isSupported()) {
+                        hls = new Hls({
+                            xhrSetup: function(xhr, url) {
+                                // Don't interfere with the xhr for local segment requests
+                                if (url.includes('/api/seg-') || url.includes('localhost')) {
+                                    return;
+                                }
                                 
-                                // Update quality options in the player
-                                art.setting.update({
-                                    html: 'Quality',
-                                    selector: [
-                                        { html: 'Auto', value: 'auto', default: true },
-                                        ...qualities
-                                    ],
-                                    onSelect: function(item) {
-                                        if (hls) {
-                                            if (item.value === 'auto') {
-                                                hls.currentLevel = -1; // Auto quality
-                                            } else {
-                                                hls.currentLevel = item.value; // Specific quality
-                                            }
-                                        }
-                                        return item.html;
-                                    }
-                                });
+                                // Only proxy external URLs
+                                if (!url.startsWith('/api/proxy') && !url.startsWith('data:')) {
+                                    const absoluteUrl = url.startsWith('http') ? url : new URL(url, window.location.href).href;
+                                    xhr.open('GET', `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`, true);
+                                }
+                            },
+                            debug: false
+                        });
+
+                        // Load the source directly without proxying again
+                        hls.loadSource(url);
+                        hls.attachMedia(video);
+
+                        // Handle duration and currentTime through the video element
+                        video.addEventListener('loadedmetadata', () => {
+                            // Only set currentTime if it's provided and valid
+                            if (option.currentTime && !isNaN(option.currentTime)) {
+                                art.currentTime = option.currentTime;
+                            }
+
+                            // Enable subtitles by default if available
+                            if (options.subtitles?.length) {
+                                const defaultSub = options.subtitles.find(sub => 
+                                    (typeof sub.default === 'boolean' && sub.default) || 
+                                    (typeof sub.language === 'string' && sub.language.toLowerCase().includes('english'))
+                                );
+                                if (defaultSub) {
+                                    art.subtitle.show = true;
+                                    art.subtitle.switch(defaultSub.url, {
+                                        name: defaultSub.html || defaultSub.language,
+                                        type: 'vtt',
+                                    });
+                                }
                             }
                         });
+
+                        // Add error handling
+                        hls.on(Hls.Events.ERROR, function(event, data) {
+                            console.error('HLS error:', data.type, data);
+                            if (data.fatal) {
+                                switch (data.type) {
+                                    case Hls.ErrorTypes.NETWORK_ERROR:
+                                        console.error('Fatal network error', data);
+                                        setTimeout(() => hls?.startLoad(), 1000);
+                                        break;
+                                    case Hls.ErrorTypes.MEDIA_ERROR:
+                                        console.error('Fatal media error', data);
+                                        setTimeout(() => hls?.recoverMediaError(), 1000);
+                                        break;
+                                    default:
+                                        console.error('Fatal error', data);
+                                        break;
+                                }
+                            }
+                        });
+                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                        // For Safari, use direct URL
+                        video.src = url;
+                    } else {
+                        console.error('HLS is not supported in this browser.');
                     }
                 },
             },
