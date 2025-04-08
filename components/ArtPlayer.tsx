@@ -61,43 +61,51 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                     if (Hls.isSupported()) {
                         hls = new Hls({
                             xhrSetup: function(xhr, url) {
-                                // Don't modify URLs for local segment requests
-                                if (url.includes('/api/seg-') || url.includes('localhost') || url.includes('.ts')) {
+                                // Don't apply proxy to segment files
+                                if (url.includes('.ts') || url.includes('/api/seg-')) {
+                                    console.log('Loading segment directly:', url);
                                     return;
                                 }
                                 
-                                // Only proxy external URLs
-                                if (!url.startsWith('/api/proxy') && !url.startsWith('data:')) {
+                                // Only proxy external URLs that are not already proxied
+                                if (!url.startsWith('/api/proxy') && !url.startsWith('data:') && url.startsWith('http')) {
                                     const absoluteUrl = url.startsWith('http') ? url : new URL(url, window.location.href).href;
+                                    console.log('Proxying URL:', absoluteUrl);
                                     xhr.open('GET', `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`, true);
                                 }
                             },
                             // Set configuration for better segment loading
-                            maxBufferSize: 0,
-                            maxBufferLength: 30,
+                            maxBufferSize: 60 * 1000 * 1000, // 60MB
+                            maxBufferLength: 60,
                             maxMaxBufferLength: 600,
-                            maxLoadingDelay: 4,
-                            manifestLoadingTimeOut: 10000,
-                            manifestLoadingMaxRetry: 4,
-                            fragLoadingTimeOut: 20000,
-                            fragLoadingMaxRetry: 6,
-                            levelLoadingTimeOut: 10000,
-                            levelLoadingMaxRetry: 4,
-                            startFragPrefetch: true,
+                            maxLoadingDelay: 2,
+                            manifestLoadingTimeOut: 15000,
+                            manifestLoadingMaxRetry: 5,
+                            manifestLoadingRetryDelay: 1000,
+                            fragLoadingTimeOut: 30000,
+                            fragLoadingMaxRetry: 8,
+                            fragLoadingRetryDelay: 1000,
+                            levelLoadingTimeOut: 15000,
+                            levelLoadingMaxRetry: 5,
+                            startFragPrefetch: false,
                             testBandwidth: true,
                             progressive: true,
                             lowLatencyMode: false,
-                            debug: false
+                            backBufferLength: 60,
+                            appendErrorMaxRetry: 5,
+                            debug: process.env.NODE_ENV === 'development'
                         });
 
                         // For local development with HLS, modify URL behavior
                         let sourceUrl = url;
-                        if (url.includes('localhost') && !url.includes('/api/proxy')) {
-                            console.log('Loading local HLS source directly:', url);
-                            sourceUrl = url; // Use direct URL for localhost
-                        } else if (!url.startsWith('/api/proxy') && url.startsWith('http')) {
-                            console.log('Loading external HLS source via proxy:', url);
-                            sourceUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+                        if (url.includes('.m3u8')) {
+                            // Handle m3u8 files by ensuring they go through our proxy if not already
+                            if (!url.startsWith('/api/proxy') && !url.includes('localhost') && url.startsWith('http')) {
+                                console.log('Proxying m3u8 source:', url);
+                                sourceUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+                            } else {
+                                console.log('Using direct m3u8 source:', url);
+                            }
                         }
                         
                         console.log('HLS source URL:', sourceUrl);
@@ -127,21 +135,52 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                             }
                         });
 
+                        // Handle specific events
+                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            console.log('HLS manifest parsed successfully');
+                            if (option.autoplay) {
+                                video.play().catch(e => console.error('Autoplay failed:', e));
+                            }
+                        });
+
+                        hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+                            console.log('Loading fragment:', data.frag.url);
+                        });
+
                         // Add error handling
                         hls.on(Hls.Events.ERROR, function(event, data) {
                             console.error('HLS error:', data.type, data);
+                            
+                            if (data.details === 'fragLoadError' || data.details === 'fragLoadTimeOut') {
+                                console.warn('Fragment load error, retrying...');
+                                if (data.frag && data.frag.url) {
+                                    console.log('Fragment URL that failed:', data.frag.url);
+                                }
+                            }
+                            
                             if (data.fatal) {
                                 switch (data.type) {
                                     case Hls.ErrorTypes.NETWORK_ERROR:
                                         console.error('Fatal network error', data);
-                                        setTimeout(() => hls?.startLoad(), 1000);
+                                        setTimeout(() => {
+                                            console.log('Attempting to recover from network error...');
+                                            hls?.startLoad();
+                                        }, 2000);
                                         break;
                                     case Hls.ErrorTypes.MEDIA_ERROR:
                                         console.error('Fatal media error', data);
-                                        setTimeout(() => hls?.recoverMediaError(), 1000);
+                                        setTimeout(() => {
+                                            console.log('Attempting to recover from media error...');
+                                            hls?.recoverMediaError();
+                                        }, 2000);
                                         break;
                                     default:
-                                        console.error('Fatal error', data);
+                                        console.error('Fatal error, cannot recover', data);
+                                        // Try to fallback to native video if possible
+                                        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                            console.log('Attempting fallback to native HLS playback');
+                                            video.src = url;
+                                        }
                                         break;
                                 }
                             }
@@ -149,6 +188,7 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                         // For Safari, use direct URL
                         video.src = url;
+                        console.log('Using native HLS playback');
                     } else {
                         console.error('HLS is not supported in this browser.');
                     }
