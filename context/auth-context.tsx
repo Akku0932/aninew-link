@@ -1,196 +1,91 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import React, { createContext, useContext, useEffect, useState } from "react"
 
-export interface AnimeItem {
+export type AnimeItem = {
   id: string
   title: string
   image: string
-  type?: string
-  anilistId?: string
+  anilistId?: number
 }
 
-export interface UserSettings {
-  theme: "light" | "dark" | "system"
-  autoplay: boolean
-  quality: "auto" | "360p" | "480p" | "720p" | "1080p"
-  notifications: boolean
-  hideSpoilers: boolean
-  language: string
-}
-
-export interface User {
+export type User = {
   id: string
-  username: string
+  name: string
   avatar?: string
+  provider: "anilist"
+  anilistToken: string
   favorites: AnimeItem[]
-  anilistToken?: string
-  anilistId?: string
-  settings: UserSettings
 }
 
-interface AuthContextType {
+type AuthContextType = {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  loginWithAnilist: () => void
   loginWithAniList: (code: string) => Promise<void>
-  login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
-  isFavorite: (animeId: string) => boolean
   addToFavorites: (anime: AnimeItem) => Promise<void>
   removeFromFavorites: (animeId: string) => Promise<void>
-  updateUserSettings: (settings: Partial<UserSettings>) => void
-  updateUserProfile: (profile: Partial<Pick<User, "username" | "avatar">>) => void
+  isFavorite: (animeId: string) => boolean
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  isAuthenticated: false,
-  isLoading: true,
-  loginWithAnilist: () => {},
-  loginWithAniList: async () => {},
-  login: async () => {},
-  register: async () => {},
-  logout: () => {},
-  isFavorite: () => false,
-  addToFavorites: async () => {},
-  removeFromFavorites: async () => {},
-  updateUserSettings: () => {},
-  updateUserProfile: () => {}
-})
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const useAuth = () => useContext(AuthContext)
+const ANILIST_CLIENT_ID = "15054"
+const ANILIST_REDIRECT_URI = "https://aninew-link.vercel.app/auth/callback"
 
-const defaultSettings: UserSettings = {
-  theme: "system",
-  autoplay: true,
-  quality: "auto",
-  notifications: true,
-  hideSpoilers: false,
-  language: "en"
-}
-
-interface AniListAnime {
-  id: number
-  title: {
-    english: string | null
-    romaji: string
-  }
-  coverImage: {
-    large: string
-  }
-  type: string
-}
-
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
 
   useEffect(() => {
-    // Check if we have a token in the URL (AniList callback)
-    const checkAniListAuth = () => {
-      if (typeof window === "undefined") return
-      
-      const urlParams = new URLSearchParams(window.location.search)
-      const accessToken = urlParams.get("access_token")
-      const tokenType = urlParams.get("token_type")
-      const expiresIn = urlParams.get("expires_in")
-      
-      if (accessToken && tokenType && expiresIn) {
-        // We have a successful AniList auth
-        fetchAniListUser(accessToken)
-          .then(userData => {
-            if (userData) {
-              // Get existing user data from localStorage if it exists
-              const existingUserData = localStorage.getItem("user")
-              let existingUser: User | null = null
-              
-              if (existingUserData) {
-                try {
-                  existingUser = JSON.parse(existingUserData)
-                } catch (e) {
-                  console.error("Failed to parse existing user data:", e)
-                }
-              }
-              
-              // Create or update user
-              const newUser: User = {
-                id: userData.id.toString(),
-                username: userData.name,
-                avatar: userData.avatar?.large,
-                favorites: existingUser?.favorites || [],
-                anilistToken: accessToken,
-                anilistId: userData.id.toString(),
-                settings: existingUser?.settings || defaultSettings
-              }
-              
-              setUser(newUser)
-              localStorage.setItem("user", JSON.stringify(newUser))
-              
-              // Sync favorites with AniList
-              syncFavoritesWithAniList(newUser)
-              
-              // Clear URL parameters
-              const returnUrl = urlParams.get("returnUrl") || "/"
-              window.history.replaceState({}, document.title, returnUrl)
-            }
-          })
-          .catch(error => {
-            console.error("Error fetching AniList user:", error)
-          })
-          .finally(() => {
-            setIsLoading(false)
-          })
-      } else {
-        // Try to load user from localStorage
-        const userData = localStorage.getItem("user")
-        if (userData) {
-          try {
-            const parsedUser = JSON.parse(userData)
-            setUser(parsedUser)
-            
-            // If we have an AniList token, verify it's still valid
-            if (parsedUser.anilistToken) {
-              verifyAniListToken(parsedUser.anilistToken)
-                .then(isValid => {
-                  if (!isValid) {
-                    // Token is invalid, remove it
-                    const updatedUser = {
-                      ...parsedUser,
-                      anilistToken: undefined,
-                      anilistId: undefined
-                    }
-                    setUser(updatedUser)
-                    localStorage.setItem("user", JSON.stringify(updatedUser))
-                  }
-                })
-                .catch(() => {
-                  // On error, assume token is invalid
-                  const updatedUser = {
-                    ...parsedUser,
-                    anilistToken: undefined,
-                    anilistId: undefined
-                  }
-                  setUser(updatedUser)
-                  localStorage.setItem("user", JSON.stringify(updatedUser))
-                })
-            }
-          } catch (e) {
-            console.error("Failed to parse user data:", e)
-          }
-        }
-        setIsLoading(false)
+    // Check if user data exists in localStorage
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser)
+        setUser(parsedUser)
+      } catch (error) {
+        console.error("Error parsing user data:", error)
+        localStorage.removeItem("user")
       }
     }
-    
-    checkAniListAuth()
+    setIsLoading(false)
   }, [])
 
-  const fetchAniListUser = async (token: string) => {
+  // Function to exchange authorization code for access token
+  const getAccessToken = async (code: string): Promise<string> => {
+    try {
+      const response = await fetch("https://anilist.co/api/v2/oauth/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          grant_type: "authorization_code",
+          client_id: ANILIST_CLIENT_ID,
+          redirect_uri: ANILIST_REDIRECT_URI,
+          code: code,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Token request failed: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return data.access_token
+    } catch (error) {
+      console.error("Error getting access token:", error)
+      throw error
+    }
+  }
+
+  // Function to get user profile from AniList
+  const getUserProfile = async (token: string): Promise<any> => {
     const query = `
       query {
         Viewer {
@@ -198,88 +93,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           name
           avatar {
             large
-            medium
           }
         }
       }
     `
-    
+
     try {
       const response = await fetch("https://graphql.anilist.co", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": `Bearer ${token}`
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query }),
       })
-      
-      const data = await response.json()
-      if (data.errors) {
-        throw new Error(data.errors[0].message)
+
+      if (!response.ok) {
+        throw new Error(`Profile request failed: ${response.status}`)
       }
-      
+
+      const data = await response.json()
       return data.data.Viewer
     } catch (error) {
-      console.error("Error fetching AniList user:", error)
-      return null
+      console.error("Error getting user profile:", error)
+      throw error
     }
   }
-  
-  const verifyAniListToken = async (token: string) => {
-    try {
-      const userData = await fetchAniListUser(token)
-      return !!userData
-    } catch (error) {
-      return false
-    }
-  }
-  
-  const syncFavoritesWithAniList = async (user: User) => {
-    if (!user.anilistToken || !user.anilistId) return
-    
-    try {
-      // Fetch favorites from AniList
-      const anilistFavorites = await fetchAniListFavorites(user.anilistToken)
-      
-      // Merge favorites with local favorites
-      if (anilistFavorites && anilistFavorites.length > 0) {
-        const mergedFavorites = [...user.favorites]
-        
-        anilistFavorites.forEach((anilistAnime: AniListAnime) => {
-          // Check if this AniList favorite exists in our local list
-          const existingIndex = mergedFavorites.findIndex(
-            local => local.anilistId === anilistAnime.id.toString()
-          )
-          
-          if (existingIndex === -1) {
-            // Add this AniList favorite to our local list
-            mergedFavorites.push({
-              id: `al-${anilistAnime.id}`, // Prefix for AniList-sourced IDs
-              anilistId: anilistAnime.id.toString(),
-              title: anilistAnime.title.english || anilistAnime.title.romaji,
-              image: anilistAnime.coverImage.large,
-              type: anilistAnime.type
-            })
-          }
-        })
-        
-        // Update user
-        const updatedUser = {
-          ...user,
-          favorites: mergedFavorites
-        }
-        
-        setUser(updatedUser)
-        localStorage.setItem("user", JSON.stringify(updatedUser))
-      }
-    } catch (error) {
-      console.error("Error syncing favorites with AniList:", error)
-    }
-  }
-  
-  const fetchAniListFavorites = async (token: string) => {
+
+  // Function to get user's favorite anime from AniList
+  const getUserFavorites = async (token: string): Promise<AnimeItem[]> => {
     const query = `
       query {
         Viewer {
@@ -288,49 +131,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               nodes {
                 id
                 title {
-                  english
                   romaji
+                  english
                 }
                 coverImage {
                   large
                 }
-                type
               }
             }
           }
         }
       }
     `
-    
+
     try {
       const response = await fetch("https://graphql.anilist.co", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": `Bearer ${token}`
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query }),
       })
-      
-      const data = await response.json()
-      if (data.errors) {
-        throw new Error(data.errors[0].message)
+
+      if (!response.ok) {
+        throw new Error(`Favorites request failed: ${response.status}`)
       }
-      
-      return data.data.Viewer.favourites.anime.nodes
+
+      const data = await response.json()
+      const favoriteAnime = data.data.Viewer.favourites.anime.nodes
+
+      return favoriteAnime.map((anime: any) => ({
+        id: anime.id.toString(),
+        title: anime.title.english || anime.title.romaji,
+        image: anime.coverImage.large,
+        anilistId: parseInt(anime.id),
+      }))
     } catch (error) {
-      console.error("Error fetching AniList favorites:", error)
+      console.error("Error getting user favorites:", error)
       return []
     }
   }
-  
-  const toggleAniListFavorite = async (anilistId: string, add: boolean) => {
-    if (!user?.anilistToken) return
-    
+
+  // Function to toggle favorite status on AniList
+  const toggleAniListFavorite = async (
+    mediaId: number,
+    add: boolean,
+    token: string
+  ): Promise<boolean> => {
     const query = `
-      mutation ($animeId: Int, $add: Boolean) {
-        ToggleFavourite(animeId: $animeId, add: $add) {
+      mutation ($mediaId: Int) {
+        ToggleFavourite(animeId: $mediaId) {
           anime {
             nodes {
               id
@@ -339,277 +191,154 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
     `
-    
+
     try {
       const response = await fetch("https://graphql.anilist.co", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": `Bearer ${user.anilistToken}`
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           query,
           variables: {
-            animeId: parseInt(anilistId),
-            add
-          }
-        })
+            mediaId,
+          },
+        }),
       })
-      
-      const data = await response.json()
-      if (data.errors) {
-        throw new Error(data.errors[0].message)
+
+      if (!response.ok) {
+        throw new Error(`Favorite toggle failed: ${response.status}`)
       }
-      
+
       return true
     } catch (error) {
-      console.error(`Error ${add ? "adding" : "removing"} AniList favorite:`, error)
+      console.error(`Error ${add ? "adding" : "removing"} favorite:`, error)
       return false
     }
   }
 
-  const loginWithAnilist = () => {
-    const clientId = "25870" // Match the client ID used in the login form
-    const redirectUri = `${window.location.origin}/auth/callback`
-    
-    // AniList OAuth URL - use response_type=code to match the callback handler
-    const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`
-    
-    window.location.href = authUrl
-  }
-  
-  const loginWithAniList = async (code: string) => {
+  const loginWithAniList = async (code: string): Promise<void> => {
     setIsLoading(true)
-    
     try {
-      // Exchange the authorization code for a token
-      // This would typically be done on a backend service to keep the client secret secure
-      // For this frontend-only implementation, we'll simulate a successful exchange
+      // Exchange code for token
+      const token = await getAccessToken(code)
       
-      // Simulate a token response
-      const tokenResponse = {
-        access_token: `simulated_token_${Date.now()}`,
-        token_type: "Bearer",
-        expires_in: 3600
+      // Get user profile
+      const profile = await getUserProfile(token)
+      
+      // Get user favorites
+      const favorites = await getUserFavorites(token)
+
+      // Create user object
+      const newUser: User = {
+        id: profile.id.toString(),
+        name: profile.name,
+        avatar: profile.avatar?.large,
+        provider: "anilist",
+        anilistToken: token,
+        favorites,
       }
-      
-      // Now use this token to fetch the user's profile
-      const userData = await fetchAniListUser(tokenResponse.access_token)
-      
-      if (userData) {
-        // Get existing user data from localStorage if it exists
-        const existingUserData = localStorage.getItem("user")
-        let existingUser: User | null = null
-        
-        if (existingUserData) {
-          try {
-            existingUser = JSON.parse(existingUserData)
-          } catch (e) {
-            console.error("Failed to parse existing user data:", e)
-          }
-        }
-        
-        // Create or update user
-        const newUser: User = {
-          id: userData.id.toString(),
-          username: userData.name,
-          avatar: userData.avatar?.large,
-          favorites: existingUser?.favorites || [],
-          anilistToken: tokenResponse.access_token,
-          anilistId: userData.id.toString(),
-          settings: existingUser?.settings || defaultSettings
-        }
-        
-        setUser(newUser)
-        localStorage.setItem("user", JSON.stringify(newUser))
-        
-        // Sync favorites with AniList
-        await syncFavoritesWithAniList(newUser)
-      } else {
-        throw new Error("Failed to fetch user data from AniList")
-      }
+
+      // Update state and save to localStorage
+      setUser(newUser)
+      localStorage.setItem("user", JSON.stringify(newUser))
     } catch (error) {
-      console.error("Error in AniList authentication:", error)
+      console.error("AniList login error:", error)
       throw error
     } finally {
       setIsLoading(false)
     }
   }
 
-  const login = async (email: string, password: string) => {
-    // In a real application, this would validate against a backend
-    // For this demo, we'll accept any credentials and create a local user
-    
-    try {
-      // Simulate network request
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      // Create a user ID from the email
-      const userId = `user_${email.replace(/[^a-zA-Z0-9]/g, '_')}`
-      
-      // Load existing user if this email has been used before
-      const existingUsers = JSON.parse(localStorage.getItem('users') || '{}')
-      
-      if (existingUsers[email]) {
-        // Validate password
-        if (existingUsers[email].password !== password) {
-          throw new Error("Invalid password")
-        }
-        
-        // Create user object from stored data
-        const userData = existingUsers[email]
-        const user: User = {
-          id: userId,
-          username: userData.name,
-          avatar: userData.avatar,
-          favorites: userData.favorites || [],
-          settings: userData.settings || defaultSettings
-        }
-        
-        setUser(user)
-        localStorage.setItem("user", JSON.stringify(user))
-      } else {
-        throw new Error("User not found. Please register first.")
-      }
-    } catch (error) {
-      console.error("Login error:", error)
-      throw error
-    }
-  }
-  
-  const register = async (name: string, email: string, password: string) => {
-    // In a real application, this would register with a backend
-    // For this demo, we'll store the user in localStorage
-    
-    try {
-      // Simulate network request
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      // Check if the email is already registered
-      const existingUsers = JSON.parse(localStorage.getItem('users') || '{}')
-      
-      if (existingUsers[email]) {
-        throw new Error("Email already registered")
-      }
-      
-      // Create user ID from email
-      const userId = `user_${email.replace(/[^a-zA-Z0-9]/g, '_')}`
-      
-      // Store the new user
-      existingUsers[email] = {
-        name,
-        password,
-        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
-        favorites: [],
-        settings: { ...defaultSettings }
-      }
-      
-      localStorage.setItem('users', JSON.stringify(existingUsers))
-      
-      // Return success but don't login automatically
-      return
-    } catch (error) {
-      console.error("Registration error:", error)
-      throw error
-    }
-  }
-
-  const logout = () => {
+  const logout = (): void => {
     setUser(null)
     localStorage.removeItem("user")
-    router.push("/")
   }
 
-  const isFavorite = (animeId: string) => {
-    if (!user) return false
-    return user.favorites.some(anime => anime.id === animeId)
-  }
+  const addToFavorites = async (anime: AnimeItem): Promise<void> => {
+    if (!user || !anime.anilistId) return
 
-  const addToFavorites = async (anime: AnimeItem) => {
-    if (!user) return
-    
-    // First check if this anime is already in favorites
-    if (isFavorite(anime.id)) return
-    
-    // If this anime has an AniList ID and user is connected to AniList
-    if (anime.anilistId && user.anilistToken) {
-      // Add to AniList favorites
-      const success = await toggleAniListFavorite(anime.anilistId, true)
-      if (!success) {
-        throw new Error("Failed to add to AniList favorites")
+    try {
+      // First update AniList if possible
+      if (anime.anilistId) {
+        const success = await toggleAniListFavorite(
+          anime.anilistId,
+          true,
+          user.anilistToken
+        )
+        
+        if (!success) {
+          throw new Error("Failed to add to AniList favorites")
+        }
       }
+
+      // Then update local state
+      const updatedFavorites = [...user.favorites, anime]
+      const updatedUser = { ...user, favorites: updatedFavorites }
+      
+      setUser(updatedUser)
+      localStorage.setItem("user", JSON.stringify(updatedUser))
+    } catch (error) {
+      console.error("Error adding to favorites:", error)
     }
-    
-    // Update local state
-    const updatedFavorites = [...user.favorites, anime]
-    const updatedUser = { ...user, favorites: updatedFavorites }
-    
-    setUser(updatedUser)
-    localStorage.setItem("user", JSON.stringify(updatedUser))
   }
 
-  const removeFromFavorites = async (animeId: string) => {
+  const removeFromFavorites = async (animeId: string): Promise<void> => {
     if (!user) return
-    
-    const animeToRemove = user.favorites.find(a => a.id === animeId)
-    if (!animeToRemove) return
-    
-    // If this anime has an AniList ID and user is connected to AniList
-    if (animeToRemove.anilistId && user.anilistToken) {
-      // Remove from AniList favorites
-      const success = await toggleAniListFavorite(animeToRemove.anilistId, false)
-      if (!success) {
-        throw new Error("Failed to remove from AniList favorites")
+
+    try {
+      const animeToRemove = user.favorites.find(item => item.id === animeId)
+      
+      // First update AniList if possible
+      if (animeToRemove?.anilistId) {
+        const success = await toggleAniListFavorite(
+          animeToRemove.anilistId,
+          false,
+          user.anilistToken
+        )
+        
+        if (!success) {
+          throw new Error("Failed to remove from AniList favorites")
+        }
       }
+
+      // Then update local state
+      const updatedFavorites = user.favorites.filter(
+        (item) => item.id !== animeId
+      )
+      const updatedUser = { ...user, favorites: updatedFavorites }
+      
+      setUser(updatedUser)
+      localStorage.setItem("user", JSON.stringify(updatedUser))
+    } catch (error) {
+      console.error("Error removing from favorites:", error)
     }
-    
-    // Update local state
-    const updatedFavorites = user.favorites.filter(anime => anime.id !== animeId)
-    const updatedUser = { ...user, favorites: updatedFavorites }
-    
-    setUser(updatedUser)
-    localStorage.setItem("user", JSON.stringify(updatedUser))
-  }
-  
-  const updateUserSettings = (settings: Partial<UserSettings>) => {
-    if (!user) return
-    
-    const updatedSettings = { ...user.settings, ...settings }
-    const updatedUser = { ...user, settings: updatedSettings }
-    
-    setUser(updatedUser)
-    localStorage.setItem("user", JSON.stringify(updatedUser))
-  }
-  
-  const updateUserProfile = (profile: Partial<Pick<User, "username" | "avatar">>) => {
-    if (!user) return
-    
-    const updatedUser = { ...user, ...profile }
-    
-    setUser(updatedUser)
-    localStorage.setItem("user", JSON.stringify(updatedUser))
   }
 
-  return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        isAuthenticated: !!user,
-        isLoading,
-        loginWithAnilist,
-        loginWithAniList,
-        login,
-        register,
-        logout,
-        isFavorite,
-        addToFavorites,
-        removeFromFavorites,
-        updateUserSettings,
-        updateUserProfile
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  )
-} 
+  const isFavorite = (animeId: string): boolean => {
+    return user?.favorites.some((item) => item.id === animeId) || false
+  }
+
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    loginWithAniList,
+    logout,
+    addToFavorites,
+    removeFromFavorites,
+    isFavorite,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}

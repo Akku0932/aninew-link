@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 const ANILIST_CLIENT_ID = "15054";
-const ANILIST_REDIRECT_URI = "http://localhost:3000/auth/callback";
+const ANILIST_REDIRECT_URI = "https://aninew-link.vercel.app/auth/callback";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
