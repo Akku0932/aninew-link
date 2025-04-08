@@ -173,15 +173,34 @@ export async function GET(request: NextRequest) {
         // Handle video segments (ts files) - use streaming and cache them
         if (url.toLowerCase().includes('.ts') || detectedContentType.includes('video/mp2t')) {
             console.log('Streaming TS segment');
-            const stream = response.body;
-            if (!stream) {
-                return new NextResponse('Stream not available', { status: 500 });
+            
+            // For TS segments, we need to ensure they're properly formatted
+            // Get the binary data first
+            const buffer = await response.arrayBuffer();
+            
+            // Verify this is actually a valid TS segment (should start with specific sync byte)
+            // TS segments should start with 0x47 (71 in decimal, 'G' in ASCII)
+            const firstByte = new Uint8Array(buffer)[0];
+            if (firstByte !== 0x47) {
+                console.warn('TS segment does not start with sync byte 0x47, may be corrupt or wrong format');
+                console.log('First byte:', firstByte);
+                
+                // Try to handle it anyway, add cache headers for better performance
+                responseHeaders.set('Cache-Control', 'public, max-age=31536000');
+                // Force content type to avoid demuxer errors
+                responseHeaders.set('Content-Type', 'video/mp2t');
+                
+                return new NextResponse(buffer, {
+                    headers: responseHeaders
+                });
             }
             
-            // Add caching headers for better performance
+            // If it's a valid TS segment, add cache headers for better performance
             responseHeaders.set('Cache-Control', 'public, max-age=31536000');
+            // Ensure proper content type
+            responseHeaders.set('Content-Type', 'video/mp2t');
             
-            return new NextResponse(stream, {
+            return new NextResponse(buffer, {
                 headers: responseHeaders
             });
         }

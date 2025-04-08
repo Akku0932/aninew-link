@@ -90,6 +90,10 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                             manifestLoadingRetryDelay: 1000,
                             levelLoadingRetryDelay: 1000,
                             fragLoadingRetryDelay: 1000,
+                            // Improve segment parsing
+                            enableWorker: false,           // Disable workers to avoid threading issues
+                            lowLatencyMode: false,         // Disable low latency mode
+                            backBufferLength: 30,          // Reduce back buffer length
                             // Disable debugging to improve performance
                             debug: false
                         });
@@ -125,6 +129,53 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
                             if (!data) return;
                             
                             console.error('HLS error:', data.type, data.details, data);
+                            
+                            // Demuxer errors require special handling
+                            if (data.details === 'fragParsingError') {
+                                console.error('Fragment parsing error:', data.error?.message || 'Unknown parsing error');
+                                
+                                // Try to recover by letting HLS.js handle it internally first
+                                if (!hasAttemptedFallback && data.frag) {
+                                    console.log('Attempting to recover from fragment parsing error');
+                                    
+                                    // Try to destroy and recreate HLS after a short delay
+                                    setTimeout(() => {
+                                        if (hls) {
+                                            console.log('Reloading HLS instance for recovery');
+                                            hls.destroy();
+                                            
+                                            // Create new HLS instance with a different config
+                                            const newHls = new Hls({
+                                                enableWorker: false,
+                                                lowLatencyMode: false,
+                                                startLevel: 0, // Force lowest quality for better compatibility
+                                            });
+                                            
+                                            newHls.loadSource(originalUrl);
+                                            newHls.attachMedia(video);
+                                            hls = newHls;
+                                        }
+                                    }, 1000);
+                                    
+                                    // Mark that we've tried this approach
+                                    hasAttemptedFallback = true;
+                                    return;
+                                }
+                                
+                                // If recovery didn't work, try MP4
+                                if (hasAttemptedFallback) {
+                                    console.log('Trying MP4 fallback due to demuxer issues');
+                                    let mp4Url = originalUrl.replace('.m3u8', '.mp4');
+                                    video.src = mp4Url;
+                                    video.load();
+                                    video.play().catch(e => {
+                                        console.error('MP4 fallback failed:', e);
+                                        // Show error to user
+                                        art.notice.show = 'Video format issues. Please try a different server.';
+                                    });
+                                }
+                                return;
+                            }
                             
                             // Special handling for playlist parsing errors
                             if (data.details === 'manifestParsingError' || data.details === 'levelParsingError') {
