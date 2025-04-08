@@ -1,10 +1,12 @@
+"use client"
+
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import NewsletterForm from "@/components/newsletter-form";
 import { LanguageSelector } from "@/components/language-selector";
+import Logo from "@/components/logo";
 import { 
-  Github, 
   Twitter, 
   Instagram, 
   Youtube,
@@ -35,30 +37,28 @@ export default function Footer() {
           {/* About & Logo Section */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-600">
-                ANINEW
-              </span>
+              <Logo size="md" animated={true} />
             </div>
             <p className="text-sm text-muted-foreground max-w-xs">
               Your ultimate destination for high-quality anime streaming. Watch the latest episodes with English subtitles and dubs.
             </p>
             <div className="flex space-x-3">
-              <Link href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+              <Link href="#" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
                 <Button variant="ghost" size="icon" className="rounded-full hover:bg-blue-100 hover:text-blue-500 dark:hover:bg-blue-900/20">
                   <Twitter className="h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+              <Link href="#" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
                 <Button variant="ghost" size="icon" className="rounded-full hover:bg-pink-100 hover:text-pink-500 dark:hover:bg-pink-900/20">
                   <Instagram className="h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="https://github.com/Akku0932/aninew-link" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800">
-                  <Github className="h-5 w-5" />
+              <Link href="#" target="_blank" rel="noopener noreferrer" aria-label="Youtube">
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/20">
+                  <Youtube className="h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="https://discord.com" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+              <Link href="#" target="_blank" rel="noopener noreferrer" aria-label="Discord">
                 <Button variant="ghost" size="icon" className="rounded-full hover:bg-purple-100 hover:text-purple-500 dark:hover:bg-purple-900/20">
                   <Twitch className="h-5 w-5" />
                 </Button>
@@ -150,10 +150,7 @@ export default function Footer() {
           <div className="flex items-center space-x-1 mt-4 md:mt-0">
             <span className="text-xs text-muted-foreground">Made with</span>
             <Heart className="h-3 w-3 text-red-500" />
-            <span className="text-xs text-muted-foreground">by</span>
-            <Link href="https://github.com/Akku0932" className="text-xs font-medium hover:underline">
-              Akku
-            </Link>
+            <span className="text-xs text-muted-foreground">for anime fans</span>
           </div>
         </div>
       </div>

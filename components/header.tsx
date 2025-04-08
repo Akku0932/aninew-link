@@ -11,6 +11,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import Logo from "@/components/logo"
+import { useAuth } from "@/context/auth-context"
+import {
+  AlignJustify,
+  ChevronDown,
+  Filter,
+  Sliders,
+  LogOut,
+  Settings,
+  User,
+  BookOpen,
+  Heart
+} from "lucide-react"
 
 type SearchResult = {
   id: string
@@ -132,8 +145,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-black transition-colors duration-300 px-4 md:px-6">
       <div className="flex items-center">
-        <Link href="/" className="mr-6 flex items-center">
-          <h1 className="text-2xl font-bold tracking-tighter text-black dark:text-white transition-colors duration-300">ANINEW</h1>
+        <Link href="/" className="flex items-center gap-2">
+          <Logo size="md" animated={false} />
         </Link>
       </div>
 
@@ -229,25 +242,98 @@ export default function Header() {
           {mounted && theme === "dark" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
           <span className="sr-only">Toggle theme</span>
         </Button>
-        {isLoggedIn ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="relative h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-800 transition-colors duration-300">
-                <span className="flex h-full w-full items-center justify-center">
-                  <span className="text-sm font-medium text-black dark:text-white transition-colors duration-300">A</span>
-                </span>
-              </button>
-            </DropdownMenuTrigger>
-          </DropdownMenu>
-        ) : (
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-800 transition-colors duration-300">
-              <span className="text-sm font-medium text-black dark:text-white transition-colors duration-300">A</span>
-            </span>
-            <span className="sr-only">Account</span>
-          </Button>
-        )}
+        
+        <AuthButtons />
       </div>
     </header>
   )
+}
+
+function AuthButtons() {
+  const { user, isAuthenticated, logout } = useAuth();
+  
+  if (isAuthenticated && user) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+            <div className="flex h-full w-full items-center justify-center rounded-full bg-primary text-primary-foreground">
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="h-full w-full rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-medium">{user.name[0]}</span>
+              )}
+            </div>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <div className="flex items-center justify-start gap-2 p-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="h-full w-full rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-medium">{user.name[0]}</span>
+              )}
+            </div>
+            <div className="flex flex-col space-y-0.5">
+              <p className="text-sm font-medium">{user.name}</p>
+              <p className="text-xs text-muted-foreground">{user.email}</p>
+            </div>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/profile" className="cursor-pointer flex w-full items-center">
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/watchlist" className="cursor-pointer flex w-full items-center">
+              <BookOpen className="mr-2 h-4 w-4" />
+              <span>My Watchlist</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/favorites" className="cursor-pointer flex w-full items-center">
+              <Heart className="mr-2 h-4 w-4" />
+              <span>Favorites</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/settings" className="cursor-pointer flex w-full items-center">
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="cursor-pointer text-red-600 focus:text-red-600"
+            onClick={logout}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Log out</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+  
+  return (
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" size="sm" asChild>
+        <Link href="/login">Log in</Link>
+      </Button>
+      <Button size="sm" className="bg-blue-600 hover:bg-blue-700" asChild>
+        <Link href="/register">Sign up</Link>
+      </Button>
+    </div>
+  );
 }

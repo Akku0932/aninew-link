@@ -6,6 +6,7 @@ import Header from "@/components/header"
 import Sidebar from "@/components/sidebar"
 import Footer from "@/components/footer"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/context/auth-context"
 import "swiper/css"
 import "swiper/css/navigation"
 import "swiper/css/pagination"
@@ -37,14 +38,16 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} dark:bg-black dark:text-white bg-white text-black transition-colors duration-300`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <div className="flex flex-1 flex-col md:flex-row">
-              <Sidebar />
-              <main className="flex-1 overflow-x-hidden scrollbar-hide">{children}</main>
+          <AuthProvider>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <div className="flex flex-1 flex-col md:flex-row">
+                <Sidebar />
+                <main className="flex-1 overflow-x-hidden scrollbar-hide">{children}</main>
+              </div>
+              <Footer />
             </div>
-            <Footer />
-          </div>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
