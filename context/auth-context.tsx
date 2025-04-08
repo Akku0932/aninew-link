@@ -35,6 +35,9 @@ interface AuthContextType {
   isAuthenticated: boolean
   isLoading: boolean
   loginWithAnilist: () => void
+  loginWithAniList: (code: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
+  register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
   isFavorite: (animeId: string) => boolean
   addToFavorites: (anime: AnimeItem) => Promise<void>
@@ -48,6 +51,9 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   isLoading: true,
   loginWithAnilist: () => {},
+  loginWithAniList: async () => {},
+  login: async () => {},
+  register: async () => {},
   logout: () => {},
   isFavorite: () => false,
   addToFavorites: async () => {},
@@ -364,13 +370,149 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   const loginWithAnilist = () => {
-    const clientId = "15463" // Your AniList client ID
+    const clientId = "25870" // Match the client ID used in the login form
     const redirectUri = `${window.location.origin}/auth/callback`
     
-    // AniList OAuth URL
-    const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token`
+    // AniList OAuth URL - use response_type=code to match the callback handler
+    const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`
     
     window.location.href = authUrl
+  }
+  
+  const loginWithAniList = async (code: string) => {
+    setIsLoading(true)
+    
+    try {
+      // Exchange the authorization code for a token
+      // This would typically be done on a backend service to keep the client secret secure
+      // For this frontend-only implementation, we'll simulate a successful exchange
+      
+      // Simulate a token response
+      const tokenResponse = {
+        access_token: `simulated_token_${Date.now()}`,
+        token_type: "Bearer",
+        expires_in: 3600
+      }
+      
+      // Now use this token to fetch the user's profile
+      const userData = await fetchAniListUser(tokenResponse.access_token)
+      
+      if (userData) {
+        // Get existing user data from localStorage if it exists
+        const existingUserData = localStorage.getItem("user")
+        let existingUser: User | null = null
+        
+        if (existingUserData) {
+          try {
+            existingUser = JSON.parse(existingUserData)
+          } catch (e) {
+            console.error("Failed to parse existing user data:", e)
+          }
+        }
+        
+        // Create or update user
+        const newUser: User = {
+          id: userData.id.toString(),
+          username: userData.name,
+          avatar: userData.avatar?.large,
+          favorites: existingUser?.favorites || [],
+          anilistToken: tokenResponse.access_token,
+          anilistId: userData.id.toString(),
+          settings: existingUser?.settings || defaultSettings
+        }
+        
+        setUser(newUser)
+        localStorage.setItem("user", JSON.stringify(newUser))
+        
+        // Sync favorites with AniList
+        await syncFavoritesWithAniList(newUser)
+      } else {
+        throw new Error("Failed to fetch user data from AniList")
+      }
+    } catch (error) {
+      console.error("Error in AniList authentication:", error)
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const login = async (email: string, password: string) => {
+    // In a real application, this would validate against a backend
+    // For this demo, we'll accept any credentials and create a local user
+    
+    try {
+      // Simulate network request
+      await new Promise(resolve => setTimeout(resolve, 800))
+      
+      // Create a user ID from the email
+      const userId = `user_${email.replace(/[^a-zA-Z0-9]/g, '_')}`
+      
+      // Load existing user if this email has been used before
+      const existingUsers = JSON.parse(localStorage.getItem('users') || '{}')
+      
+      if (existingUsers[email]) {
+        // Validate password
+        if (existingUsers[email].password !== password) {
+          throw new Error("Invalid password")
+        }
+        
+        // Create user object from stored data
+        const userData = existingUsers[email]
+        const user: User = {
+          id: userId,
+          username: userData.name,
+          avatar: userData.avatar,
+          favorites: userData.favorites || [],
+          settings: userData.settings || defaultSettings
+        }
+        
+        setUser(user)
+        localStorage.setItem("user", JSON.stringify(user))
+      } else {
+        throw new Error("User not found. Please register first.")
+      }
+    } catch (error) {
+      console.error("Login error:", error)
+      throw error
+    }
+  }
+  
+  const register = async (name: string, email: string, password: string) => {
+    // In a real application, this would register with a backend
+    // For this demo, we'll store the user in localStorage
+    
+    try {
+      // Simulate network request
+      await new Promise(resolve => setTimeout(resolve, 800))
+      
+      // Check if the email is already registered
+      const existingUsers = JSON.parse(localStorage.getItem('users') || '{}')
+      
+      if (existingUsers[email]) {
+        throw new Error("Email already registered")
+      }
+      
+      // Create user ID from email
+      const userId = `user_${email.replace(/[^a-zA-Z0-9]/g, '_')}`
+      
+      // Store the new user
+      existingUsers[email] = {
+        name,
+        password,
+        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
+        favorites: [],
+        settings: { ...defaultSettings }
+      }
+      
+      localStorage.setItem('users', JSON.stringify(existingUsers))
+      
+      // Return success but don't login automatically
+      return
+    } catch (error) {
+      console.error("Registration error:", error)
+      throw error
+    }
   }
 
   const logout = () => {
@@ -456,6 +598,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isAuthenticated: !!user,
         isLoading,
         loginWithAnilist,
+        loginWithAniList,
+        login,
+        register,
         logout,
         isFavorite,
         addToFavorites,

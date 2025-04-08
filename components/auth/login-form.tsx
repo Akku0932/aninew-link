@@ -15,7 +15,7 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, loginWithAnilist } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,8 +44,8 @@ export default function LoginForm() {
 
   const handleAniListLogin = () => {
     setIsLoading(true)
-    // Redirect to AniList OAuth flow with the provided client ID
-    window.location.href = "https://anilist.co/api/v2/oauth/authorize?client_id=25870&redirect_uri=https://aninew-link.vercel.app/auth/callback&response_type=code"
+    // Use the auth context function instead of hardcoding the URL
+    loginWithAnilist()
   }
 
   return (
