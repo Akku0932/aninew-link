@@ -1,81 +1,129 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const url = request.nextUrl.searchParams.get('url');
+  
+  if (!url) {
+    return NextResponse.json({ error: 'URL parameter is required' }, { status: 400 });
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    let url = searchParams.get('url');
-
-    if (!url) {
-      return NextResponse.json({ error: 'URL parameter is required' }, { status: 400 });
+    const decodedUrl = decodeURIComponent(url);
+    console.log(`Proxying request to: ${decodedUrl.substring(0, 100)}${decodedUrl.length > 100 ? '...' : ''}`);
+    
+    // Add caching headers for HLS segments
+    const isM3u8 = decodedUrl.includes('.m3u8') || decodedUrl.includes('.ts');
+    const cacheControl = isM3u8 ? 'public, max-age=60' : 'no-cache';
+    
+    // Fetch with timeout and retry
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    
+    let response;
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (retries < maxRetries) {
+      try {
+        response = await fetch(decodedUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Referer': new URL(decodedUrl).origin,
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Origin': process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aninew.link',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'cross-site',
+            'Connection': 'keep-alive',
+          },
+          signal: controller.signal,
+          cache: isM3u8 ? 'no-store' : 'default'
+        });
+        break; // If successful, exit the retry loop
+      } catch (error: any) {
+        retries++;
+        if (retries >= maxRetries) {
+          throw error;
+        }
+        // Wait before retrying (exponential backoff)
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retries)));
+      }
     }
-
-    // Decode URL if it's encoded (handle potential double encoding)
-    while (url.includes('%')) {
-      url = decodeURIComponent(url);
+    
+    clearTimeout(timeoutId);
+    
+    if (!response || !response.ok) {
+      throw new Error(`Failed to fetch from origin: ${response?.status || 'No response'}`);
     }
-
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Origin': 'https://gogoanime.cl',
-        'Referer': 'https://gogoanime.cl/',
-      },
-    });
-
-    // If it's an m3u8 file, we need to rewrite the URLs
-    const contentType = response.headers.get('content-type');
-    let body = response.body;
-
-    if (contentType?.includes('application/vnd.apple.mpegurl') || contentType?.includes('application/x-mpegurl')) {
-      const text = await response.text();
-      // Get the base URL from the original URL
-      const baseUrl = new URL(url);
-      baseUrl.search = ''; // Remove query parameters
-      baseUrl.hash = '';  // Remove hash
-
-      // Replace relative URLs with absolute ones and proxy them
-      const modifiedText = text.replace(/^(?!#)(?!https?:\/\/)([^#][^\r\n]*)/gm, (match) => {
-        const absoluteUrl = new URL(match, baseUrl.href).href;
-        return `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
+    
+    // Handle different content types appropriately
+    const contentType = response.headers.get('content-type') || '';
+    let responseBody;
+    
+    if (contentType.includes('application/json')) {
+      responseBody = await response.json();
+      return NextResponse.json(responseBody, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': cacheControl
+        }
       });
-
-      // Create a new readable stream from the modified text
-      body = new ReadableStream({
-        start(controller) {
-          const encoder = new TextEncoder();
-          controller.enqueue(encoder.encode(modifiedText));
-          controller.close();
+    } else if (contentType.includes('text/plain') || contentType.includes('application/x-mpegURL') || contentType.includes('text/html')) {
+      let text = await response.text();
+      
+      // If it's an M3U8 file, ensure relative URLs are made absolute
+      if (contentType.includes('application/x-mpegURL') || decodedUrl.includes('.m3u8')) {
+        const baseUrl = new URL(decodedUrl);
+        const basePath = baseUrl.href.substring(0, baseUrl.href.lastIndexOf('/') + 1);
+        
+        // Fix relative URLs in M3U8 file
+        text = text.replace(/(#EXT-X-STREAM-INF:[^\n]*\n)([^#][^:][^\n]*)/g, (match, p1, p2) => {
+          const absoluteUrl = new URL(p2.trim(), basePath).href;
+          return `${p1}/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
+        });
+        
+        // Fix relative segment URLs
+        text = text.replace(/(#EXTINF:[^\n]*\n)([^#][^:][^\n]*)/g, (match, p1, p2) => {
+          const absoluteUrl = new URL(p2.trim(), basePath).href;
+          return `${p1}/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
+        });
+      }
+      
+      return new NextResponse(text, {
+        headers: {
+          'Content-Type': contentType,
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': cacheControl
+        }
+      });
+    } else {
+      // For binary data like video segments
+      const buffer = await response.arrayBuffer();
+      return new NextResponse(buffer, {
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': buffer.byteLength.toString(),
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': cacheControl
         }
       });
     }
-
-    // Copy all headers from the original response
-    const headers = new Headers(response.headers);
-    headers.set('Access-Control-Allow-Origin', '*');
-    headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    headers.set('Access-Control-Allow-Headers', '*');
-
-    // Create response with the processed body and headers
-    return new NextResponse(body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers
-    });
-
-  } catch (error) {
-    console.error('Proxy error:', error);
-    return NextResponse.json({ error: 'Failed to proxy request' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Proxy error:', error.message);
+    return NextResponse.json(
+      { error: `Proxy fetch failed: ${error.message}` },
+      { status: 500 }
+    );
   }
 }
 
-export async function OPTIONS() {
-  const headers = new Headers();
-  headers.set('Access-Control-Allow-Origin', '*');
-  headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  headers.set('Access-Control-Allow-Headers', '*');
-  
+export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
-    status: 204,
-    headers
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    }
   });
 }

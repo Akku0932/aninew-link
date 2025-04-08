@@ -918,9 +918,15 @@ export default function WatchPage() {
       ],
       customType: {
         m3u8: function (video: HTMLVideoElement, url: string) {
-          // Dynamically import HLS.js
+          // Dynamically import HLS.js and handle all possible errors
           import('hls.js').then(({ default: Hls }) => {
             if (Hls.isSupported()) {
+              console.log('HLS.js is supported, initializing with URL:', url);
+              
+              // Create a proxy URL if necessary
+              const finalUrl = url.includes('proxy') ? url : 
+                               `/api/proxy?url=${encodeURIComponent(url)}`;
+              
               const hls = new Hls({
                 autoStartLoad: true,
                 startLevel: -1, // Auto quality by default
@@ -930,21 +936,85 @@ export default function WatchPage() {
                 maxBufferSize: 60 * 1000 * 1000, // 60MB max buffer size
                 maxBufferHole: 0.5,
                 lowLatencyMode: false,
-                debug: false
+                debug: false,
+                // Add retry configuration
+                fragLoadingMaxRetry: 6,
+                manifestLoadingMaxRetry: 6,
+                levelLoadingMaxRetry: 6,
+                fragLoadingRetryDelay: 1000,
+                manifestLoadingRetryDelay: 1000,
+                levelLoadingRetryDelay: 1000,
+                // More lenient error handling
+                fragLoadingMaxRetryTimeout: 10000,
+                manifestLoadingMaxRetryTimeout: 10000,
+                levelLoadingMaxRetryTimeout: 10000,
+                // Configure XHR for CORS issues
+                xhrSetup: (xhr, hlsUrl) => {
+                  if (!hlsUrl.startsWith('/api/proxy') && !hlsUrl.includes('data:')) {
+                    const encodedUrl = encodeURIComponent(hlsUrl);
+                    xhr.open('GET', `/api/proxy?url=${encodedUrl}`, true);
+                  }
+                }
               });
               
-              hls.loadSource(url);
-              hls.attachMedia(video);
-              hlsRef.current = hls;
-
-              // Handle quality levels after manifest is loaded
+              // Error handling
+              hls.on(Hls.Events.ERROR, (event, data) => {
+                console.warn('HLS error:', data.type, data.details, data);
+                
+                if (data.fatal) {
+                  switch (data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                      console.log('Fatal network error encountered, trying to recover');
+                      toast({
+                        title: "Network Error",
+                        description: "Attempting to reconnect to video source...",
+                        duration: 3000,
+                      });
+                      hls.startLoad();
+                      break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                      console.log('Fatal media error encountered, trying to recover');
+                      toast({
+                        title: "Playback Error",
+                        description: "Attempting to recover playback...",
+                        duration: 3000,
+                      });
+                      hls.recoverMediaError();
+                      break;
+                    default:
+                      console.log('Fatal error, cannot recover');
+                      toast({
+                        title: "Video Error",
+                        description: "Please try a different server or episode",
+                        variant: "destructive",
+                        duration: 5000,
+                      });
+                      
+                      // Try direct playback
+                      console.log('Trying direct playback as fallback');
+                      hls.destroy();
+                      video.src = finalUrl;
+                      video.play().catch(e => {
+                        console.error('Direct playback failed too:', e);
+                      });
+                      break;
+                  }
+                }
+              });
+              
+              // Log successful loading
               hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+                console.log('HLS manifest parsed successfully:', {
+                  levels: data.levels.length,
+                  firstLevel: data.firstLevel
+                });
+                
                 const qualities = data.levels.map(level => ({
                   html: `${level.height}p`,
                   value: level.url[0],
                   bitrate: level.bitrate
                 }));
-
+                
                 // Update quality options
                 const art = artRef.current;
                 if (art) {
@@ -954,11 +1024,31 @@ export default function WatchPage() {
                       { html: 'Auto', value: 'auto', default: true },
                       ...qualities
                     ],
+                    onSelect: (item: { html: string; value: string }) => {
+                      if (item.value === 'auto') {
+                        hls.currentLevel = -1;
+                      } else {
+                        // Find the level index by URL
+                        const levelIndex = data.levels.findIndex(l => l.url[0] === item.value);
+                        if (levelIndex !== -1) {
+                          hls.currentLevel = levelIndex;
+                        }
+                      }
+                      return item.html;
+                    }
                   });
                 }
-
-                console.log('Available qualities:', qualities);
               });
+              
+              try {
+                hls.loadSource(finalUrl);
+                hls.attachMedia(video);
+                hlsRef.current = hls;
+              } catch (error) {
+                console.error('Error initializing HLS:', error);
+                // Fallback to direct playback
+                video.src = finalUrl;
+              }
               
               // Clean up HLS on destroy
               video.addEventListener('destroy', () => {
@@ -967,9 +1057,30 @@ export default function WatchPage() {
                   hlsRef.current = null;
                 }
               });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+              // For Safari which has native HLS support
+              console.log('Using native HLS support');
+              video.src = url;
+            } else {
+              console.error('Neither HLS.js nor native HLS is supported');
+              toast({
+                title: "Compatibility Error",
+                description: "Your browser doesn't support HLS video playback",
+                variant: "destructive",
+                duration: 5000,
+              });
+              video.src = url; // Try direct anyway as last resort
             }
           }).catch(err => {
             console.error("Failed to load HLS.js:", err);
+            // If HLS.js fails to load, try direct playback
+            video.src = url;
+            toast({
+              title: "Playback Error",
+              description: "Could not initialize video player",
+              variant: "destructive",
+              duration: 5000,
+            });
           });
         }
       }
@@ -1107,6 +1218,17 @@ export default function WatchPage() {
                 }
               });
 
+              // Error handling for video element
+              art.on('error', () => {
+                console.error('Video element error');
+                toast({
+                  title: "Playback Error",
+                  description: "Failed to play this video. Please try a different server.",
+                  variant: "destructive",
+                  duration: 5000,
+                });
+              });
+
               // Initialize subtitles if available
               if (videoSrc.subtitles?.length) {
                 const defaultSub = videoSrc.subtitles.find(sub => 
@@ -1121,6 +1243,7 @@ export default function WatchPage() {
                 art.off('video:timeupdate');
                 art.off('video:ended');
                 art.off('ready');
+                art.off('error');
               };
             }}
             className={lightsOff ? "lights-on-player" : ""}
