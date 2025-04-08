@@ -60,11 +60,34 @@ export default function RootLayout({
               scrollbar-width: thin;
               scrollbar-color: #e11d48 rgba(0, 0, 0, 0.1);
             }
+            
+            /* Fix theme inconsistencies */
+            body.dark {
+              background-color: #000;
+              color: #fff;
+            }
+            
+            body.light {
+              background-color: #fff;
+              color: #000;
+            }
+            
+            /* Remove vertical overflow from home page */
+            html, body {
+              overflow-x: hidden;
+              max-width: 100%;
+            }
           `}
         </style>
       </head>
-      <body className={`${inter.className} dark:bg-black dark:text-white bg-white text-black transition-colors duration-300`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <body className={`${inter.className}`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+          forcedTheme="dark"
+        >
           <AuthProvider>
             <div className="flex min-h-screen flex-col">
               <Header />

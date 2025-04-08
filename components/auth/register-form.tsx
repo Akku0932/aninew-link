@@ -55,6 +55,12 @@ export default function RegisterForm() {
     }
   }
 
+  const handleAniListSignup = () => {
+    setIsLoading(true)
+    // In a real implementation, redirect to AniList OAuth flow
+    window.location.href = "https://anilist.co/api/v2/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&response_type=code"
+  }
+
   return (
     <div className="w-full max-w-md space-y-8 rounded-lg border border-border bg-card p-8 shadow-sm">
       <div className="flex flex-col items-center justify-center space-y-2 text-center">
@@ -202,6 +208,28 @@ export default function RegisterForm() {
           {isLoading ? "Creating account..." : "Create account"}
         </button>
       </form>
+      
+      <div className="relative my-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border"></div>
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+        </div>
+      </div>
+      
+      <button
+        type="button"
+        onClick={handleAniListSignup}
+        className="flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6.36 0L0 12.93V24H6.36V12.93L12.72 0H6.36Z" fill="#02A9FF"/>
+          <path d="M17.52 6.3H23.88L17.52 19.41L11.34 6.3H17.52Z" fill="#02A9FF"/>
+          <path d="M17.52 24H23.88V6.3H17.52V24Z" fill="#02A9FF"/>
+        </svg>
+        <span>Sign up with AniList</span>
+      </button>
       
       <div className="mt-4 text-center text-sm">
         Already have an account?{" "}
