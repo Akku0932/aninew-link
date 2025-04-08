@@ -74,11 +74,11 @@ export default function TrendingAnime() {
   if (isLoading) {
     return (
       <div className="space-y-4 p-4 md:p-6">
-        <div className="h-8 w-40 animate-pulse rounded bg-gray-800"></div>
-        <div className="h-4 w-full md:w-96 animate-pulse rounded bg-gray-800"></div>
+        <div className="h-8 w-40 animate-pulse rounded bg-gray-300 dark:bg-gray-800"></div>
+        <div className="h-4 w-full md:w-96 animate-pulse rounded bg-gray-300 dark:bg-gray-800"></div>
         <div className="flex gap-4 overflow-hidden py-4">
           {[...Array(isMobile ? 2 : 5)].map((_, i) => (
-            <div key={i} className="h-[280px] w-[180px] shrink-0 animate-pulse rounded-lg bg-gray-800"></div>
+            <div key={i} className="h-[280px] w-[180px] shrink-0 animate-pulse rounded-lg bg-gray-300 dark:bg-gray-800"></div>
           ))}
         </div>
       </div>
@@ -99,7 +99,7 @@ export default function TrendingAnime() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <Flame className="h-5 w-5 text-gray-400" />
+            <Flame className="h-5 w-5 text-red-400" />
             <h2 className="text-xl md:text-2xl font-bold text-black dark:text-white transition-colors duration-300">Trending Now</h2>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-300">The hottest anime everyone's watching</p>
@@ -107,19 +107,19 @@ export default function TrendingAnime() {
         
         {/* Custom navigation buttons */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400 dark:text-gray-400 text-gray-600 transition-colors duration-300">{activeIndex + 1}/{trendingAnime.length}</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-300">{activeIndex + 1}/{trendingAnime.length}</span>
           <div className="hidden md:flex gap-2">
             <button 
               onClick={handlePrev} 
-              className="h-8 w-8 rounded-full bg-gray-800 hover:bg-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors duration-300"
+              className="h-8 w-8 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 flex items-center justify-center transition-colors duration-300"
             >
-              <ChevronLeft className="h-5 w-5 text-white dark:text-white text-gray-800 transition-colors duration-300" />
+              <ChevronLeft className="h-5 w-5 text-gray-800 dark:text-white transition-colors duration-300" />
             </button>
             <button 
               onClick={handleNext} 
-              className="h-8 w-8 rounded-full bg-gray-800 hover:bg-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors duration-300"
+              className="h-8 w-8 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 flex items-center justify-center transition-colors duration-300"
             >
-              <ChevronRight className="h-5 w-5 text-white dark:text-white text-gray-800 transition-colors duration-300" />
+              <ChevronRight className="h-5 w-5 text-gray-800 dark:text-white transition-colors duration-300" />
             </button>
           </div>
         </div>
