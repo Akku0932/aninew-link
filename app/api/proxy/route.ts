@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
             // Add better error handling for empty or invalid playlists
             if (!text || text.trim().length === 0) {
                 console.error('Empty m3u8 playlist received');
-                return new Response('Empty playlist received', { status: 400 });
+                return new NextResponse('Empty playlist received', { status: 400 });
             }
             
             // Process alternative segment format indication (sometimes servers use custom extensions)
@@ -180,8 +180,29 @@ export async function GET(request: NextRequest) {
             // Only add target duration to segment playlists, not master playlists
             if (!hasTargetDuration && !isMasterPlaylist) {
                 console.log('Adding missing #EXT-X-TARGETDURATION tag');
-                // Add a reasonable target duration if missing (10 seconds is common)
-                modifiedText = modifiedText.replace('#EXTM3U', '#EXTM3U\n#EXT-X-TARGETDURATION:10');
+                
+                // Try to calculate a reasonable target duration from EXTINF values
+                let calculatedTargetDuration = 10; // Default value
+                
+                if (hasExtInf) {
+                    // Extract durations from EXTINF tags
+                    const durationMatches = modifiedText.match(/#EXTINF:([\d\.]+)/g);
+                    if (durationMatches && durationMatches.length > 0) {
+                        const durations = durationMatches.map(match => {
+                            const duration = parseFloat(match.replace('#EXTINF:', ''));
+                            return isNaN(duration) ? 0 : duration;
+                        }).filter(d => d > 0);
+                        
+                        if (durations.length > 0) {
+                            // Use the maximum duration as target duration (rounded up)
+                            calculatedTargetDuration = Math.ceil(Math.max(...durations));
+                            console.log('Calculated target duration from segments:', calculatedTargetDuration);
+                        }
+                    }
+                }
+                
+                // Add a reasonable target duration
+                modifiedText = modifiedText.replace('#EXTM3U', `#EXTM3U\n#EXT-X-TARGETDURATION:${calculatedTargetDuration}`);
             }
 
             // Add version if missing - many players need this
@@ -193,16 +214,17 @@ export async function GET(request: NextRequest) {
             // Special fixes for malformed EXTINF entries
             if (hasExtInf) {
                 // Fix EXTINF entries that are missing the duration
-                modifiedText = modifiedText.replace(/#EXTINF:/g, (match) => {
-                    // If the EXTINF doesn't have a duration, add a default of 10 seconds
-                    if (match === '#EXTINF:') {
-                        return '#EXTINF:10.0,';
-                    }
-                    return match;
-                });
+                modifiedText = modifiedText.replace(/#EXTINF:(?!\d)/g, '#EXTINF:10.0,');
                 
                 // Fix EXTINF entries that are missing the comma after duration
                 modifiedText = modifiedText.replace(/#EXTINF:(\d+\.?\d*)([^\s,])/g, '#EXTINF:$1,$2');
+            }
+
+            // Make sure EXT-X-ENDLIST is present for VOD content
+            if (!isMasterPlaylist && !modifiedText.includes('#EXT-X-ENDLIST') && 
+                !modifiedText.includes('#EXT-X-PLAYLIST-TYPE:EVENT')) {
+                console.log('Adding missing #EXT-X-ENDLIST tag for VOD content');
+                modifiedText += '\n#EXT-X-ENDLIST';
             }
 
             // Replace relative URLs with proxied absolute ones
@@ -226,7 +248,7 @@ export async function GET(request: NextRequest) {
             
             // Also rewrite absolute URLs in the file to use our proxy 
             // Handle both m3u8 and ts files
-            modifiedText = modifiedText.replace(/(https?:\/\/[^\s"'\r\n]+\.(?:ts|m3u8))/g, (match) => {
+            modifiedText = modifiedText.replace(/(https?:\/\/[^\s"'\r\n]+\.(?:ts|m3u8|m4s|aac|m4a|mp4|m4v))/g, (match) => {
                 console.log('Rewriting absolute URL:', match);
                 return `/api/proxy?url=${encodeURIComponent(match)}`;
             });
@@ -241,6 +263,9 @@ export async function GET(request: NextRequest) {
             // For debugging, log the first few lines of the processed playlist
             const processedLines = modifiedText.split('\n').slice(0, 10); 
             console.log('Processed playlist preview:', processedLines.join('\n'));
+            
+            // Set Cache-Control header to prevent caching issues
+            responseHeaders.set('Cache-Control', 'no-cache');
             
             return new NextResponse(modifiedText, { 
                 headers: responseHeaders
