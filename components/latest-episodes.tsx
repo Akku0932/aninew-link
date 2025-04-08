@@ -57,13 +57,13 @@ export default function LatestEpisodes() {
   if (isLoading) {
     return (
       <div className="space-y-4 p-4 md:p-6">
-        <div className="h-8 w-48 animate-pulse rounded bg-gray-300 dark:bg-gray-800"></div>
+        <div className="h-8 w-48 animate-pulse rounded bg-gray-800 dark:bg-gray-800 bg-gray-300"></div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(16)].map((_, i) => (
             <div key={i} className="flex flex-col gap-2">
-              <div className="aspect-video animate-pulse rounded-lg bg-gray-300 dark:bg-gray-800"></div>
-              <div className="h-5 w-3/4 animate-pulse rounded bg-gray-300 dark:bg-gray-800"></div>
-              <div className="h-4 w-1/2 animate-pulse rounded bg-gray-300 dark:bg-gray-800"></div>
+              <div className="aspect-video animate-pulse rounded-lg bg-gray-800 dark:bg-gray-800 bg-gray-300"></div>
+              <div className="h-5 w-3/4 animate-pulse rounded bg-gray-800 dark:bg-gray-800 bg-gray-300"></div>
+              <div className="h-4 w-1/2 animate-pulse rounded bg-gray-800 dark:bg-gray-800 bg-gray-300"></div>
             </div>
           ))}
         </div>
@@ -111,11 +111,11 @@ export default function LatestEpisodes() {
         {/* Filter buttons */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400 dark:text-gray-400 text-gray-600 transition-colors duration-300">Filter:</span>
-          <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-800 transition-colors duration-300">
+          <div className="flex rounded-lg overflow-hidden border border-gray-800 dark:border-gray-800 border-gray-300 transition-colors duration-300">
             <button 
               onClick={() => setFilter('all')}
               className={`px-3 py-1 text-xs font-medium transition-colors ${
-                filter === 'all' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+                filter === 'all' ? 'bg-red-500 text-white' : 'dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               All
@@ -123,7 +123,7 @@ export default function LatestEpisodes() {
             <button 
               onClick={() => setFilter('sub')}
               className={`px-3 py-1 text-xs font-medium transition-colors ${
-                filter === 'sub' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+                filter === 'sub' ? 'bg-red-500 text-white' : 'dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               Sub
@@ -131,7 +131,7 @@ export default function LatestEpisodes() {
             <button 
               onClick={() => setFilter('dub')}
               className={`px-3 py-1 text-xs font-medium transition-colors ${
-                filter === 'dub' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+                filter === 'dub' ? 'bg-red-500 text-white' : 'dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               Dub

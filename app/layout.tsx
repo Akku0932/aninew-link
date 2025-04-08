@@ -1,39 +1,36 @@
-import type React from "react"
-import type { Metadata } from "next/types"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import Header from "@/components/header"
-import Sidebar from "@/components/sidebar"
-import Footer from "@/components/footer"
-import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from "@/context/auth-context"
-import "swiper/css"
-import "swiper/css/navigation"
-import "swiper/css/pagination"
-import Script from "next/script"
+import "@/styles/globals.css";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import Header from "@/components/header";
+import Sidebar from "@/components/sidebar";
+import { ThemeProvider } from "@/components/theme-provider";
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
+import Script from "next/script";
+import { AuthProvider } from "@/context/auth-context";
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ANINEW - Watch Anime Online",
-  description: "Watch the latest anime online in HD quality",
-    generator: 'v0.dev'
-}
+  title: "AniNew - Watch Anime Online",
+  description: "Watch the latest anime online for free in HD quality with English subtitles or dubbed.",
+};
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Load HLS.js from CDN with specific version for stability */}
-        <Script
-          src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"
-          strategy="beforeInteractive"
-          integrity="sha256-Xo1jz/4QVY0UpFfQE/VGzusgcxJiwj2cJgmGd7nWJhE="
+        <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
           crossOrigin="anonymous"
+          referrerPolicy="no-referrer"
         />
       </head>
       <body className={`${inter.className} dark:bg-black dark:text-white bg-white text-black transition-colors duration-300`}>
@@ -45,13 +42,12 @@ export default function RootLayout({
                 <Sidebar />
                 <main className="flex-1 overflow-x-hidden scrollbar-hide">{children}</main>
               </div>
-              <Footer />
             </div>
           </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
 
 

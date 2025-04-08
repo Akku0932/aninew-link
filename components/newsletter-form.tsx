@@ -1,110 +1,87 @@
 "use client"
 
-import { useState, FormEvent } from "react"
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, CheckCircle2, AlertCircle } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ArrowRight, Check, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export default function NewsletterForm() {
   const [email, setEmail] = useState("")
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
-  const [message, setMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Basic email validation
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setStatus("error")
-      setMessage("Please enter a valid email address")
+    // Basic validation
+    if (!email || !email.includes('@')) {
+      setError("Please enter a valid email address")
       return
     }
     
-    setStatus("loading")
+    setError(null)
+    setIsLoading(true)
     
-    // Simulate API call
     try {
-      // In a real application, you would make an API call to your server
-      // Example: await fetch('/api/newsletter', { method: 'POST', body: JSON.stringify({ email }) })
-      
-      // Simulate network delay
+      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      setStatus("success")
-      setMessage("Thanks for subscribing!")
+      // Success!
+      setIsSuccess(true)
       setEmail("")
       
-      // Reset success message after 5 seconds
+      // Reset success state after 3 seconds
       setTimeout(() => {
-        if (setStatus) { // Check if component is still mounted
-          setStatus("idle")
-          setMessage("")
-        }
-      }, 5000)
-      
-    } catch (error) {
-      setStatus("error")
-      setMessage("Something went wrong. Please try again.")
+        setIsSuccess(false)
+      }, 3000)
+    } catch (err) {
+      setError("Failed to subscribe. Please try again.")
+    } finally {
+      setIsLoading(false)
     }
   }
-
+  
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
       <div className="flex space-x-2">
-        <div className="relative flex-1">
-          <Input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={`pr-10 ${status === "error" ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-            disabled={status === "loading" || status === "success"}
-          />
-          {status === "success" && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Subscription successful!</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Your email"
+          className={cn(
+            "max-w-[220px]",
+            error ? "border-red-500 focus-visible:ring-red-500" : ""
           )}
-          {status === "error" && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertCircle className="h-5 w-5 text-red-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{message}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          )}
-        </div>
+          disabled={isLoading || isSuccess}
+        />
         <Button 
           type="submit" 
-          size="sm" 
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-          disabled={status === "loading" || status === "success"}
+          variant="default"
+          disabled={isLoading || isSuccess}
+          className={cn(
+            "transition-all",
+            isSuccess && "bg-green-600 hover:bg-green-700"
+          )}
         >
-          {status === "loading" ? (
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isSuccess ? (
+            <Check className="h-4 w-4" />
           ) : (
             <ArrowRight className="h-4 w-4" />
           )}
         </Button>
       </div>
-      {message && status !== "error" && (
-        <p className="text-xs text-green-500">{message}</p>
+      
+      {error && (
+        <p className="text-xs text-red-500">{error}</p>
+      )}
+      
+      {isSuccess && (
+        <p className="text-xs text-green-500">Subscribed successfully!</p>
       )}
     </form>
   )

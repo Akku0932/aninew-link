@@ -1,82 +1,103 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Globe } from "lucide-react"
+import * as React from "react"
+import { Check, ChevronsUpDown, Globe } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
-type Language = {
-  code: string
-  name: string
-  flag: string
-}
-
-const languages: Language[] = [
-  { code: "en", name: "English", flag: "🇺🇸" },
-  { code: "ja", name: "Japanese", flag: "🇯🇵" },
-  { code: "es", name: "Spanish", flag: "🇪🇸" },
-  { code: "fr", name: "French", flag: "🇫🇷" },
-  { code: "de", name: "German", flag: "🇩🇪" },
+const languages = [
+  { value: "en", label: "English", flag: "🇺🇸" },
+  { value: "jp", label: "Japanese", flag: "🇯🇵" },
+  { value: "fr", label: "French", flag: "🇫🇷" },
+  { value: "de", label: "German", flag: "🇩🇪" },
+  { value: "es", label: "Spanish", flag: "🇪🇸" },
 ]
 
 export function LanguageSelector() {
-  const [currentLanguage, setCurrentLanguage] = useState<Language>(languages[0])
-  const [mounted, setMounted] = useState(false)
+  const [open, setOpen] = React.useState(false)
+  const [value, setValue] = React.useState("en")
+  const [mounted, setMounted] = React.useState(false)
 
-  // When mounted on client, now we can show the UI and get the saved language preference
-  useEffect(() => {
+  React.useEffect(() => {
     setMounted(true)
-    const savedLang = localStorage.getItem("preferred-language")
-    if (savedLang) {
-      const lang = languages.find(l => l.code === savedLang)
-      if (lang) setCurrentLanguage(lang)
+    const savedLanguage = localStorage.getItem("preferredLanguage")
+    if (savedLanguage && languages.some(lang => lang.value === savedLanguage)) {
+      setValue(savedLanguage)
     }
   }, [])
 
-  const handleLanguageChange = (lang: Language) => {
-    setCurrentLanguage(lang)
-    localStorage.setItem("preferred-language", lang.code)
+  const handleSelect = (currentValue: string) => {
+    setValue(currentValue)
+    setOpen(false)
+    localStorage.setItem("preferredLanguage", currentValue)
     
-    // Dispatch a custom event that other components can listen to
-    const event = new CustomEvent('languageChange', { detail: lang.code })
+    // Dispatch event for components that need to know when language changes
+    const language = currentValue === "jp" ? "JP" : "EN"
+    const event = new CustomEvent('languageChange', { detail: language })
     window.dispatchEvent(event)
   }
 
-  if (!mounted) {
-    return (
-      <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
-        <Globe className="h-4 w-4" />
-      </Button>
-    )
-  }
+  if (!mounted) return null
+
+  const selectedLanguage = languages.find(lang => lang.value === value)
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
-          <Globe className="h-4 w-4" />
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-8 w-8 rounded-full p-0 flex items-center justify-center"
+        >
           <span className="sr-only">Select language</span>
+          {selectedLanguage?.flag ? (
+            <span className="text-sm">{selectedLanguage.flag}</span>
+          ) : (
+            <Globe className="h-4 w-4" />
+          )}
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {languages.map((lang) => (
-          <DropdownMenuItem
-            key={lang.code}
-            onClick={() => handleLanguageChange(lang)}
-            className={`flex items-center gap-2 ${
-              currentLanguage.code === lang.code ? "font-bold bg-accent" : ""
-            }`}
-          >
-            <span className="text-base">{lang.flag}</span>
-            <span>{lang.name}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0">
+        <Command>
+          <CommandInput placeholder="Search language..." />
+          <CommandEmpty>No language found.</CommandEmpty>
+          <CommandGroup>
+            <CommandList>
+              {languages.map((language) => (
+                <CommandItem
+                  key={language.value}
+                  value={language.value}
+                  onSelect={handleSelect}
+                  className="flex items-center gap-2"
+                >
+                  <span className="text-base">{language.flag}</span>
+                  <span>{language.label}</span>
+                  <Check
+                    className={cn(
+                      "ml-auto h-4 w-4",
+                      value === language.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                </CommandItem>
+              ))}
+            </CommandList>
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 } 

@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import NewsletterForm from "@/components/newsletter-form";
-import { LanguageSelector } from "@/components/language-selector";
 import Logo from "@/components/logo";
 import { 
   Twitter, 
@@ -16,11 +14,67 @@ import {
   ArrowRight,
   Heart,
   ArrowUp,
-  Globe
+  Globe,
+  CheckCircle
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageSelector } from "@/components/language-selector";
+import { useState } from "react";
 
-export default function Footer() {
+const footerLinks = [
+  {
+    title: "Resources",
+    links: [
+      { name: "FAQs", href: "/faqs" },
+      { name: "Terms", href: "/terms" },
+      { name: "Privacy", href: "/privacy" },
+      { name: "Help Center", href: "/help" },
+    ],
+  },
+  {
+    title: "Categories",
+    links: [
+      { name: "Action", href: "/category/action" },
+      { name: "Romance", href: "/category/romance" },
+      { name: "Comedy", href: "/category/comedy" },
+      { name: "Drama", href: "/category/drama" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { name: "About", href: "/about" },
+      { name: "Careers", href: "/careers" },
+      { name: "Blog", href: "/blog" },
+      { name: "Contact", href: "/contact" },
+    ],
+  },
+];
+
+const languages = [
+  { code: "en", name: "English" },
+  { code: "es", name: "Español" },
+  { code: "ja", name: "日本語" },
+  { code: "fr", name: "Français" },
+];
+
+export function Footer() {
+  const [email, setEmail] = useState("");
+  const [subscribed, setSubscribed] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      setSubscribed(true);
+      // Here you would typically send the email to your API
+      setTimeout(() => {
+        setEmail("");
+        setSubscribed(false);
+      }, 3000);
+    }
+  };
+
   const currentYear = new Date().getFullYear();
   
   const scrollToTop = () => {
@@ -40,29 +94,21 @@ export default function Footer() {
               <Logo size="md" animated={true} />
             </div>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Your ultimate destination for high-quality anime streaming. Watch the latest episodes with English subtitles and dubs.
+              Your premier destination for watching anime online with a vast collection of subtitled and dubbed content.
             </p>
-            <div className="flex space-x-3">
-              <Link href="#" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-blue-100 hover:text-blue-500 dark:hover:bg-blue-900/20">
-                  <Twitter className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="#" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-pink-100 hover:text-pink-500 dark:hover:bg-pink-900/20">
-                  <Instagram className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="#" target="_blank" rel="noopener noreferrer" aria-label="Youtube">
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/20">
-                  <Youtube className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="#" target="_blank" rel="noopener noreferrer" aria-label="Discord">
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-purple-100 hover:text-purple-500 dark:hover:bg-purple-900/20">
-                  <Twitch className="h-5 w-5" />
-                </Button>
-              </Link>
+            <div className="flex items-center space-x-2">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <select
+                value={selectedLanguage}
+                onChange={(e) => setSelectedLanguage(e.target.value)}
+                className="text-sm bg-transparent border-none focus:ring-0 text-muted-foreground"
+              >
+                {languages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           
@@ -114,9 +160,28 @@ export default function Footer() {
           <div className="space-y-4">
             <h4 className="text-sm font-semibold">Stay Updated</h4>
             <p className="text-sm text-muted-foreground">
-              Subscribe to our newsletter for updates on new releases, features, and more.
+              Subscribe to our newsletter for latest anime updates.
             </p>
-            <NewsletterForm />
+            {subscribed ? (
+              <div className="flex items-center text-sm text-green-500">
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Thanks for subscribing!
+              </div>
+            ) : (
+              <form onSubmit={handleSubscribe} className="flex space-x-2">
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-9 text-sm"
+                  required
+                />
+                <Button type="submit" size="sm" className="h-9">
+                  <Mail className="h-4 w-4" />
+                </Button>
+              </form>
+            )}
             <div className="flex items-center space-x-6 pt-2">
               <div className="flex items-center space-x-2">
                 <ThemeToggle />

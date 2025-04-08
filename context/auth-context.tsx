@@ -1,22 +1,20 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from "react"
+import React, { createContext, useContext, useEffect, useState } from "react"
 
 type User = {
   id: string
   name: string
   email: string
-  avatar?: string
 }
 
 type AuthContextType = {
   user: User | null
-  isLoading: boolean
   isAuthenticated: boolean
+  isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
-  error: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -24,17 +22,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check if user is stored in localStorage
+    // Check if user is logged in from localStorage
     const storedUser = localStorage.getItem("user")
     if (storedUser) {
       try {
-        const parsedUser = JSON.parse(storedUser)
-        setUser(parsedUser)
-      } catch (err) {
-        console.error("Error parsing stored user:", err)
+        setUser(JSON.parse(storedUser))
+      } catch (error) {
+        console.error("Failed to parse stored user data:", error)
         localStorage.removeItem("user")
       }
     }
@@ -42,75 +38,111 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      // In a real app, you would make an API call here
-      // For demo purposes, we'll simulate a successful login
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Validate credentials (just for demo)
-      if (email === "demo@example.com" && password === "password") {
-        const newUser = {
-          id: "1",
-          name: "Demo User",
-          email: "demo@example.com",
-          avatar: ""
+    // Note: In a real app, this would make an API request
+    return new Promise<void>((resolve, reject) => {
+      setTimeout(() => {
+        // Mock login validation
+        if (email === "demo@example.com" && password === "password") {
+          const userData: User = {
+            id: "user-1",
+            name: "Demo User",
+            email: "demo@example.com",
+          }
+          
+          localStorage.setItem("user", JSON.stringify(userData))
+          setUser(userData)
+          resolve()
+        } else {
+          // Check if user exists in localStorage (for registration testing)
+          const storedUsers = localStorage.getItem("users")
+          if (storedUsers) {
+            try {
+              const users = JSON.parse(storedUsers)
+              const foundUser = users.find((u: any) => u.email === email)
+              
+              if (foundUser && foundUser.password === password) {
+                const userData: User = {
+                  id: foundUser.id,
+                  name: foundUser.name,
+                  email: foundUser.email,
+                }
+                
+                localStorage.setItem("user", JSON.stringify(userData))
+                setUser(userData)
+                resolve()
+                return
+              }
+            } catch (error) {
+              console.error("Failed to parse stored users:", error)
+            }
+          }
+          
+          reject(new Error("Invalid email or password"))
         }
-        
-        setUser(newUser)
-        localStorage.setItem("user", JSON.stringify(newUser))
-      } else {
-        throw new Error("Invalid email or password")
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred during login")
-    } finally {
-      setIsLoading(false)
-    }
+      }, 500) // Simulating network delay
+    })
   }
 
   const register = async (name: string, email: string, password: string) => {
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      // In a real app, you would make an API call here
-      // For demo purposes, we'll simulate a successful registration
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const newUser = {
-        id: Math.random().toString(36).substr(2, 9),
-        name,
-        email,
-        avatar: ""
-      }
-      
-      setUser(newUser)
-      localStorage.setItem("user", JSON.stringify(newUser))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred during registration")
-    } finally {
-      setIsLoading(false)
-    }
+    // Note: In a real app, this would make an API request
+    return new Promise<void>((resolve, reject) => {
+      setTimeout(() => {
+        // Check if the email is already taken
+        const storedUsers = localStorage.getItem("users")
+        let users = []
+        
+        if (storedUsers) {
+          try {
+            users = JSON.parse(storedUsers)
+            if (users.some((user: any) => user.email === email)) {
+              reject(new Error("Email is already taken"))
+              return
+            }
+          } catch (error) {
+            console.error("Failed to parse stored users:", error)
+          }
+        }
+        
+        // Create new user
+        const newUser = {
+          id: `user-${Date.now()}`,
+          name,
+          email,
+          password, // In a real app, this would be hashed
+        }
+        
+        users.push(newUser)
+        localStorage.setItem("users", JSON.stringify(users))
+        
+        // Automatically log in the user after registration
+        // (Uncomment this if you want to auto-login)
+        // const userData: User = {
+        //   id: newUser.id,
+        //   name: newUser.name,
+        //   email: newUser.email,
+        // };
+        // localStorage.setItem("user", JSON.stringify(userData));
+        // setUser(userData);
+        
+        resolve()
+      }, 500) // Simulating network delay
+    })
   }
 
   const logout = () => {
-    setUser(null)
     localStorage.removeItem("user")
+    setUser(null)
   }
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isLoading,
         isAuthenticated: !!user,
+        isLoading,
         login,
         register,
         logout,
-        error,
       }}
     >
       {children}
