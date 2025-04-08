@@ -829,8 +829,19 @@ export default function WatchPage() {
       );
     }
 
+    // Ensure URL is proxied
+    const videoUrl = videoSrc.url.startsWith('/api/proxy') 
+      ? videoSrc.url 
+      : `/api/proxy?url=${encodeURIComponent(videoSrc.url)}`;
+    
+    // Ensure subtitle URLs are proxied
+    const processedSubtitles = videoSrc.subtitles?.map(sub => ({
+      ...sub,
+      url: sub.url.startsWith('/api/proxy') ? sub.url : `/api/proxy?url=${encodeURIComponent(sub.url)}`
+    }));
+
     const playerOptions = {
-      url: videoSrc.url,
+      url: videoUrl,
       type: 'm3u8', // Always use m3u8 for HLS streams
       title: `${animeInfo?.info?.name} - Episode ${currentEpisodeId.split('?ep=')[1]}`,
       poster: animeInfo?.info?.img || "",
@@ -862,8 +873,8 @@ export default function WatchPage() {
       moreVideoAttr: {
         crossOrigin: "anonymous",
       },
-      subtitle: videoSrc.subtitles?.length ? {
-        url: videoSrc.subtitles[0].url,
+      subtitle: processedSubtitles?.length ? {
+        url: processedSubtitles[0].url,
         type: 'vtt',
         style: {
           color: '#fff',
@@ -896,7 +907,7 @@ export default function WatchPage() {
           icon: '<i class="art-icon art-icon-subtitle"></i>',
           selector: [
             { html: 'Off', value: 'off' },
-            ...(videoSrc.subtitles?.map(sub => ({
+            ...(processedSubtitles?.map(sub => ({
               html: sub.label,
               value: sub.url,
               default: sub.default
@@ -918,14 +929,14 @@ export default function WatchPage() {
       ],
       customType: {
         m3u8: function (video: HTMLVideoElement, url: string) {
+          // Ensure URL is properly proxied in customType function
+          const finalUrl = url.startsWith('/api/proxy') ? url : `/api/proxy?url=${encodeURIComponent(url)}`;
+          console.log('Loading video with URL:', finalUrl);
+          
           // Dynamically import HLS.js and handle all possible errors
           import('hls.js').then(({ default: Hls }) => {
             if (Hls.isSupported()) {
-              console.log('HLS.js is supported, initializing with URL:', url);
-              
-              // Create a proxy URL if necessary
-              const finalUrl = url.includes('proxy') ? url : 
-                               `/api/proxy?url=${encodeURIComponent(url)}`;
+              console.log('HLS.js is supported, initializing with URL:', finalUrl);
               
               const hls = new Hls({
                 autoStartLoad: true,
@@ -1060,7 +1071,7 @@ export default function WatchPage() {
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
               // For Safari which has native HLS support
               console.log('Using native HLS support');
-              video.src = url;
+              video.src = finalUrl;
             } else {
               console.error('Neither HLS.js nor native HLS is supported');
               toast({
@@ -1069,12 +1080,12 @@ export default function WatchPage() {
                 variant: "destructive",
                 duration: 5000,
               });
-              video.src = url; // Try direct anyway as last resort
+              video.src = finalUrl; // Try direct anyway as last resort
             }
           }).catch(err => {
             console.error("Failed to load HLS.js:", err);
             // If HLS.js fails to load, try direct playback
-            video.src = url;
+            video.src = finalUrl;
             toast({
               title: "Playback Error",
               description: "Could not initialize video player",

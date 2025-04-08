@@ -28,6 +28,10 @@ interface ArtPlayerProps {
 // Create a separate HLS loader function with error handling
 const loadHlsSource = (video: HTMLVideoElement, url: string, art: any) => {
     if (hlsSupported) {
+        // Always use the proxy for external video URLs
+        const proxyUrl = url.startsWith('/api/proxy') ? url : `/api/proxy?url=${encodeURIComponent(url)}`;
+        console.log('Loading HLS source with proxy URL:', proxyUrl);
+        
         const hls = new Hls({
             // Basic configuration
             autoStartLoad: true,
@@ -48,7 +52,19 @@ const loadHlsSource = (video: HTMLVideoElement, url: string, art: any) => {
             // More lenient error handling
             fragLoadingMaxRetryTimeout: 10000,
             manifestLoadingMaxRetryTimeout: 10000,
-            levelLoadingMaxRetryTimeout: 10000
+            levelLoadingMaxRetryTimeout: 10000,
+            
+            // Handle CORS issues with xhrSetup
+            xhrSetup: function(xhr, loadUrl) {
+                if (!loadUrl.startsWith('/api/proxy') && !loadUrl.includes('data:')) {
+                    // Cancel the original request
+                    xhr.abort();
+                    
+                    // Open a new request to the proxy
+                    const encodedUrl = encodeURIComponent(loadUrl);
+                    xhr.open('GET', `/api/proxy?url=${encodedUrl}`, true);
+                }
+            }
         });
         
         // Add error handling
@@ -72,8 +88,8 @@ const loadHlsSource = (video: HTMLVideoElement, url: string, art: any) => {
                         console.error('Unrecoverable HLS error, falling back to direct playback', data);
                         hls.destroy();
                         
-                        // Try direct playback as fallback
-                        video.src = url;
+                        // Try direct playback as fallback through proxy
+                        video.src = proxyUrl;
                         video.play().catch(e => {
                             console.error('Direct playback failed too:', e);
                             
@@ -88,8 +104,14 @@ const loadHlsSource = (video: HTMLVideoElement, url: string, art: any) => {
         });
         
         // Setup HLS
-        hls.loadSource(url);
-        hls.attachMedia(video);
+        try {
+            hls.loadSource(proxyUrl);
+            hls.attachMedia(video);
+        } catch (error) {
+            console.error('Error setting up HLS:', error);
+            // Try direct playback as fallback
+            video.src = proxyUrl;
+        }
         
         // Clean up on destroy
         video.addEventListener('destroy', () => {
@@ -98,12 +120,14 @@ const loadHlsSource = (video: HTMLVideoElement, url: string, art: any) => {
         
         return hls;
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // For Safari which has built-in HLS support
-        video.src = url;
+        // For Safari which has built-in HLS support, still use proxy
+        const proxyUrl = url.startsWith('/api/proxy') ? url : `/api/proxy?url=${encodeURIComponent(url)}`;
+        video.src = proxyUrl;
         return null;
     } else {
-        // Fallback for browsers without HLS support
-        video.src = url;
+        // Fallback for browsers without HLS support, still use proxy
+        const proxyUrl = url.startsWith('/api/proxy') ? url : `/api/proxy?url=${encodeURIComponent(url)}`;
+        video.src = proxyUrl;
         return null;
     }
 };
