@@ -52,67 +52,64 @@ export default function ArtPlayer({ options, getInstance, className, style }: Ar
             option.aspectRatio = parseFloat(option.aspectRatio);
         }
 
-        // Ensure all external URLs go through our proxy
-        let videoUrl = options.url;
-        if (videoUrl && videoUrl.startsWith('http') && !videoUrl.includes('localhost') && !videoUrl.startsWith('/api/proxy')) {
-            videoUrl = `/api/proxy?url=${encodeURIComponent(videoUrl)}`;
-            console.log('Proxying video URL:', videoUrl);
-        }
-
         const art = new Artplayer({
             ...option,
             container: artRef.current,
             type: options.url.includes('.m3u8') ? 'customHls' : 'auto',
-            url: videoUrl, // Use the potentially proxied URL here
             customType: {
                 customHls: function (video: HTMLVideoElement, url: string) {
                     if (Hls.isSupported()) {
                         hls = new Hls({
                             xhrSetup: function(xhr, url) {
-                                // Skip proxying for URLs that are already proxied or local
-                                if (url.startsWith('/api/proxy') || url.startsWith('data:') || url.includes('localhost')) {
+                                // Don't apply proxy to segment files
+                                if (url.includes('.ts') || url.includes('/api/seg-')) {
+                                    console.log('Loading segment directly:', url);
                                     return;
                                 }
                                 
-                                // Always proxy external URLs to avoid CORS issues
-                                if (url.startsWith('http')) {
-                                    console.log('Proxying HLS request:', url);
-                                    xhr.open('GET', `/api/proxy?url=${encodeURIComponent(url)}`, true);
+                                // Only proxy external URLs that are not already proxied
+                                if (!url.startsWith('/api/proxy') && !url.startsWith('data:') && url.startsWith('http')) {
+                                    const absoluteUrl = url.startsWith('http') ? url : new URL(url, window.location.href).href;
+                                    console.log('Proxying URL:', absoluteUrl);
+                                    xhr.open('GET', `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`, true);
                                 }
                             },
                             // Set configuration for better segment loading
                             maxBufferSize: 60 * 1000 * 1000, // 60MB
                             maxBufferLength: 60,
                             maxMaxBufferLength: 600,
-                            maxLoadingDelay: 4,
-                            manifestLoadingTimeOut: 20000,
-                            manifestLoadingMaxRetry: 6,
+                            maxLoadingDelay: 2,
+                            manifestLoadingTimeOut: 15000,
+                            manifestLoadingMaxRetry: 5,
                             manifestLoadingRetryDelay: 1000,
                             fragLoadingTimeOut: 30000,
                             fragLoadingMaxRetry: 8,
                             fragLoadingRetryDelay: 1000,
-                            levelLoadingTimeOut: 20000,
-                            levelLoadingMaxRetry: 6,
+                            levelLoadingTimeOut: 15000,
+                            levelLoadingMaxRetry: 5,
                             startFragPrefetch: false,
                             testBandwidth: true,
                             progressive: true,
                             lowLatencyMode: false,
                             backBufferLength: 60,
                             appendErrorMaxRetry: 5,
-                            // Use no-cors mode for fetch requests
-                            fetchSetup: function(context, initParams) {
-                                if (initParams) {
-                                    initParams.mode = 'cors';
-                                    initParams.credentials = 'same-origin';
-                                }
-                                return new Request(context.url, initParams);
-                            },
-                            debug: false
+                            debug: process.env.NODE_ENV === 'development'
                         });
 
-                        // Handle HLS loading with CORS protection
-                        console.log('Loading HLS source:', url);
-                        hls.loadSource(url);
+                        // For local development with HLS, modify URL behavior
+                        let sourceUrl = url;
+                        if (url.includes('.m3u8')) {
+                            // Handle m3u8 files by ensuring they go through our proxy if not already
+                            if (!url.startsWith('/api/proxy') && !url.includes('localhost') && url.startsWith('http')) {
+                                console.log('Proxying m3u8 source:', url);
+                                sourceUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+                            } else {
+                                console.log('Using direct m3u8 source:', url);
+                            }
+                        }
+                        
+                        console.log('HLS source URL:', sourceUrl);
+                        hls.loadSource(sourceUrl);
                         hls.attachMedia(video);
 
                         // Handle duration and currentTime through the video element
