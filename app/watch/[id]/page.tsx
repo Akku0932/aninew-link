@@ -1756,16 +1756,6 @@ export default function WatchPage() {
                   
                   {/* MAL buttons */}
                   <div className="flex sm:mt-2 mt-3 items-center gap-2">                    
-                    <AnimeMALButton
-                      animeId={id as string}
-                      malId={animeInfo?.info?.malId?.toString()}
-                      title={animeInfo?.info?.name || ""}
-                      image={animeInfo?.info?.img || ""}
-                      type="TV"
-                      variant="icon"
-                      className="bg-gray-900 border border-gray-800 p-1 rounded"
-                    />
-                    
                     <AnimeMALStatus
                       animeId={id as string}
                       malId={animeInfo?.info?.malId?.toString()}

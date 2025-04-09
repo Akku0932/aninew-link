@@ -162,20 +162,30 @@ export default function AnimeMALStatus({
     setIsLoading(true);
     
     try {
+      console.log(`Updating anime status: ${animeId} (MAL ID: ${extractedMalId}) to ${newStatus}`);
+      
       // Update the status in MyAnimeList
       const result = await callMALAPI(`anime/${extractedMalId}/my_list_status`, {
         status: newStatus
       }, 'PUT');
+      
+      console.log("MAL status update result:", result);
       
       // Update local state with the new status
       if (result) {
         setListStatus(result);
         setStatus(newStatus);
         setSuccess(true);
+        
+        // Force a page refresh to update the UI
+        // This helps ensure the status is displayed correctly
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       }
     } catch (error) {
       console.error("Error updating anime status:", error);
-      setError("Failed to update");
+      setError("Failed to update: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsLoading(false);
     }

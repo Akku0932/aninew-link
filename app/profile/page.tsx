@@ -388,7 +388,15 @@ export default function ProfilePage() {
                       Link your account to sync your anime list
                     </p>
                     <Button asChild>
-                      <Link href="/api/auth/mal">Connect with MyAnimeList</Link>
+                      <Link 
+                        href="https://myanimelist.net/v1/oauth2/authorize?response_type=code&client_id=5105b8eb05adcc56e3c1eff800c98a30&redirect_uri=http://localhost:3000/profile&code_challenge=randomstring&code_challenge_method=plain"
+                        onClick={() => {
+                          // Store the code verifier for PKCE
+                          localStorage.setItem('mal_code_verifier', 'randomstring');
+                        }}
+                      >
+                        Connect with MyAnimeList
+                      </Link>
                     </Button>
                   </div>
                 )}
