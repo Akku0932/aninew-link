@@ -16,8 +16,9 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import Image from "next/image"
 import Link from "next/link"
-import AnimeFavoriteButton from "@/components/anime-favorite-button"
+import AnimeTitleMarquee from "@/components/anime-title-marquee"
 import AnimeMALButton from "@/components/anime-mal-button"
+import AnimeFavoriteButton from "@/components/anime-favorite-button"
 
 type Episode = {
   title: string
@@ -1763,6 +1764,14 @@ export default function WatchPage() {
                       image={animeInfo?.info?.img || ""}
                       type="TV"
                       variant="icon"
+                    />
+                    
+                    <AnimeFavoriteButton
+                      animeId={id as string}
+                      title={animeInfo?.info?.name || ""}
+                      image={animeInfo?.info?.img || ""}
+                      type={animeInfo?.info?.type || "TV"}
+                      className="ml-2"
                     />
                   </div>
                 </div>

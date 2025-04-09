@@ -34,7 +34,7 @@ type AuthContextType = {
   removeFromFavorites: (animeId: string) => void
   isFavorite: (animeId: string) => boolean
   addToMAL: (animeId: string, malId: string, status: string) => Promise<boolean>
-  callMALAPI: (endpoint: string, params?: Record<string, any>) => Promise<any>
+  callMALAPI: <T = any>(endpoint: string, params?: Record<string, any>, method?: 'GET' | 'POST' | 'PUT' | 'DELETE') => Promise<T>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -75,7 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // Function to make MAL API calls
-  const callMALAPI = async (endpoint: string, params: Record<string, any> = {}) => {
+  const callMALAPI = async <T = any>(
+    endpoint: string, 
+    params: Record<string, any> = {}, 
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET'
+  ): Promise<T> => {
     if (!user?.malToken) {
       throw new Error("No MyAnimeList token available");
     }
@@ -90,7 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           token: user.malToken,
           endpoint,
-          params
+          params,
+          method
         })
       });
 
@@ -504,29 +509,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const malStatus = status.toLowerCase();
       
       // Update anime status in MyAnimeList
-      const response = await fetch("/api/auth/mal/api", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token: user.malToken,
-          endpoint: `anime/${malId}/my_list_status`,
-          method: "PUT",
-          params: {
-            status: malStatus
-          }
-        })
-      });
-      
-      const data = await response.json();
-      
-      console.log(`MyAnimeList add to list response:`, data);
-      
-      if (data.error) {
-        console.error("MyAnimeList add to list errors:", data.error);
-        return false;
-      }
+      const data = await callMALAPI(
+        `anime/${malId}/my_list_status`, 
+        { status: malStatus },
+        'PUT'
+      );
       
       console.log(`Added anime with MyAnimeList ID: ${malId} to list with status: ${status}`);
       return true;
