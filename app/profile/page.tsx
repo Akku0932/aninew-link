@@ -7,10 +7,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Heart, User as UserIcon, Clock, Settings, LogOut, List, Search, Loader2 } from "lucide-react";
+import { Heart, User as UserIcon, Clock, Settings, LogOut, List, Search, Loader2, Trash2 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import AnimeFavoriteButton from "@/components/anime-favorite-button";
 
 // Define types for MyAnimeList data
 type MALAnime = {
@@ -62,13 +63,14 @@ const getStatusLabel = (status: string): string => {
 };
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, isLoading, logout, callMALAPI } = useAuth();
+  const { user, isAuthenticated, isLoading, logout, callMALAPI, favorites, removeFromFavorites } = useAuth();
   const router = useRouter();
   const [malAnimeList, setMalAnimeList] = useState<MALAnime[]>([]);
   const [isLoadingMAL, setIsLoadingMAL] = useState(false);
   const [malError, setMalError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentFilter, setCurrentFilter] = useState<string>('all');
+  const [favoritesSearchQuery, setFavoritesSearchQuery] = useState('');
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -126,6 +128,11 @@ export default function ProfilePage() {
     const matchesFilter = currentFilter === 'all' || anime.list_status.status === currentFilter;
     return matchesSearch && matchesFilter;
   });
+
+  // Filter favorites by search query
+  const filteredFavorites = favorites ? favorites.filter(anime => 
+    anime.title.toLowerCase().includes(favoritesSearchQuery.toLowerCase())
+  ) : [];
 
   if (isLoading) {
     return (
@@ -214,16 +221,105 @@ export default function ProfilePage() {
         {/* Main Content */}
         <div className="md:col-span-2">
           <Tabs defaultValue="anime-list" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="anime-list">
                 <List className="mr-2 h-4 w-4" />
                 MyAnimeList
+              </TabsTrigger>
+              <TabsTrigger value="favorites">
+                <Heart className="mr-2 h-4 w-4" />
+                Favorites
               </TabsTrigger>
               <TabsTrigger value="watch-history">
                 <Clock className="mr-2 h-4 w-4" />
                 Watch History
               </TabsTrigger>
             </TabsList>
+            
+            <TabsContent value="favorites" className="mt-6">
+              <div className="mb-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">My Favorites</h3>
+                </div>
+                
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search favorites..."
+                      className="pl-8"
+                      value={favoritesSearchQuery}
+                      onChange={(e) => setFavoritesSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                {filteredFavorites.length === 0 ? (
+                  <div className="rounded-lg border bg-card p-8 text-center">
+                    <Heart className="mx-auto mb-2 h-10 w-10 text-muted-foreground opacity-30" />
+                    <h4 className="text-lg font-medium">No favorites found</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {favoritesSearchQuery ? "Try a different search query" : "Add anime to your favorites from the anime info page"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {filteredFavorites.map((anime) => (
+                      <div 
+                        key={anime.id} 
+                        className="flex overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md"
+                      >
+                        <div className="relative h-[120px] w-[85px] flex-shrink-0">
+                          <Image
+                            src={anime.image || "/placeholder.svg"}
+                            alt={anime.title}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="flex flex-col justify-between p-3 flex-1">
+                          <div>
+                            <div className="flex justify-between items-start gap-2">
+                              <h4 className="font-medium line-clamp-2 text-sm">{anime.title}</h4>
+                              <Badge className="flex-shrink-0 text-xs bg-pink-500 hover:bg-pink-600">
+                                Favorite
+                              </Badge>
+                            </div>
+                            <div className="mt-1 flex items-center text-xs text-muted-foreground">
+                              <span>{anime.type || "Anime"}</span>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex justify-between items-center">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="text-xs h-7 px-2 py-1 text-red-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20"
+                              onClick={() => removeFromFavorites(anime.id)}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Remove
+                            </Button>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="ghost" asChild className="text-xs h-7 px-2 py-1">
+                                <Link href={`/info/${anime.id}`}>
+                                  Info
+                                </Link>
+                              </Button>
+                              <Button size="sm" variant="default" asChild className="text-xs h-7 px-2 py-1">
+                                <Link href={`/watch/${anime.id}`}>
+                                  Watch
+                                </Link>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
             
             <TabsContent value="anime-list" className="mt-6">
               <div className="mb-6 space-y-4">
