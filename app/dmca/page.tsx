@@ -20,11 +20,10 @@ export default function DMCAPage() {
         <div className="bg-card rounded-lg border p-6 shadow-sm">
           <p className="text-sm text-muted-foreground mb-6">Last Updated: {new Date().toLocaleDateString()}</p>
 
-          <h2>DMCA Notice & Takedown Policy</h2>
-          <p>
-            AniStream respects the intellectual property rights of others and expects its users to do the same. 
-            In accordance with the Digital Millennium Copyright Act of 1998 ("DMCA"), we will respond expeditiously 
-            to claims of copyright infringement that are reported to the designated copyright agent identified below.
+          <p className="mb-4">
+            Aninew respects the intellectual property rights of others and expects its users to do the same.
+            In accordance with the Digital Millennium Copyright Act of 1998 ("DMCA"), we will respond expeditiously to
+            claims of copyright infringement that are reported to our designated copyright agent, as described below.
           </p>
 
           <h2>Notification of Claimed Infringement</h2>
@@ -58,17 +57,16 @@ export default function DMCAPage() {
             </li>
           </ol>
 
-          <p>
-            Please send your notice of claims of copyright infringement to:
+          <h2 className="text-2xl font-semibold mt-8 mb-4">4. DMCA Agent Contact Information</h2>
+          <p className="mb-4">
+            Our designated DMCA Agent to receive notifications of claimed infringement is:
           </p>
-          
-          <div className="bg-muted p-4 rounded my-4">
-            <p>Email: <a href="mailto:dmca@anistream.com">dmca@anistream.com</a></p>
-            <p>
-              AniStream Copyright Agent<br />
-              123 Anime Street<br />
-              Tokyo, Japan 12345
-            </p>
+          <div className="pl-4 border-l-2 border-primary mb-6">
+            <p>Email: <a href="mailto:dmca@aninew.com">dmca@aninew.com</a></p>
+            <p>Mailing Address:<br />
+            Aninew Copyright Agent<br />
+            123 Anime Street<br />
+            Tokyo, Japan 1000001</p>
           </div>
 
           <h2>Counter-Notification</h2>
@@ -108,17 +106,17 @@ export default function DMCAPage() {
             accounts based on even a single DMCA notice, in appropriate circumstances at our sole discretion.
           </p>
 
-          <h2>Modifications to Policy</h2>
-          <p>
-            AniStream reserves the right to modify this DMCA Policy at any time. Changes and clarifications will 
-            take effect immediately upon their posting on the website. We encourage you to periodically review 
-            this policy to stay informed of our updates.
+          <h2 className="text-2xl font-semibold mt-8 mb-4">8. Modification of this Policy</h2>
+          <p className="mb-4">
+            Aninew reserves the right to modify this DMCA Policy at any time. Changes and clarifications will
+            take effect immediately upon posting on the website. Your continued use of our services after any changes
+            to this Policy constitutes your acceptance of the revised Policy.
           </p>
 
-          <h2>Contact Us</h2>
-          <p>
-            If you have any questions about our DMCA Policy, please contact us:
-            <br /><a href="mailto:dmca@anistream.com">dmca@anistream.com</a>
+          <h2 className="text-2xl font-semibold mt-8 mb-4">9. Contact Us</h2>
+          <p className="mb-4">
+            If you have any questions about this DMCA Policy, please contact us at:
+            <br /><a href="mailto:dmca@aninew.com">dmca@aninew.com</a>
           </p>
         </div>
       </div>

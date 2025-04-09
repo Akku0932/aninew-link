@@ -22,7 +22,7 @@ export default function PrivacyPage() {
 
           <h2>1. Introduction</h2>
           <p>
-            AniStream ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, 
+            Aninew ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, 
             disclose, and safeguard your information when you use our website and services.
           </p>
           <p>
@@ -106,7 +106,7 @@ export default function PrivacyPage() {
             <li><strong>Business Transfers:</strong> If we are involved in a merger, acquisition, or sale of all or a portion of our assets, your information may be transferred as part of that transaction.</li>
             <li><strong>Service Providers:</strong> We may employ third-party companies and individuals to facilitate our service, provide the service on our behalf, perform service-related activities, or assist us in analyzing how our service is used.</li>
             <li><strong>Legal Requirements:</strong> We may disclose your information where required to do so by law or in response to valid requests by public authorities.</li>
-            <li><strong>Protection of Rights:</strong> We may disclose your information to protect and defend the rights or property of AniStream.</li>
+            <li><strong>Protection of Rights:</strong> We may disclose your information to protect and defend the rights or property of Aninew.</li>
           </ul>
 
           <h2>6. Data Security</h2>
@@ -146,10 +146,10 @@ export default function PrivacyPage() {
             this page and updating the "Last Updated" date. You are advised to review this Privacy Policy periodically for any changes.
           </p>
 
-          <h2>10. Contact Us</h2>
-          <p>
-            If you have any questions about this Privacy Policy, please contact us:
-            <br /><a href="mailto:privacy@anistream.com">privacy@anistream.com</a>
+          <h2 className="text-2xl font-semibold mt-8 mb-4">12. Contact Us</h2>
+          <p className="mb-4">
+            If you have questions or comments about this Privacy Policy, please contact us at:
+            <br /><a href="mailto:privacy@aninew.com">privacy@aninew.com</a>
           </p>
         </div>
       </div>

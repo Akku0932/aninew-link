@@ -20,19 +20,18 @@ export default function TermsPage() {
         <div className="bg-card rounded-lg border p-6 shadow-sm">
           <p className="text-sm text-muted-foreground mb-6">Last Updated: {new Date().toLocaleDateString()}</p>
 
-          <h2>1. Agreement to Terms</h2>
-          <p>
-            By accessing and using AniStream, you agree to be bound by these Terms of Service and all applicable laws 
-            and regulations. If you do not agree with any of these terms, you are prohibited from using this website.
+          <p className="mb-4">
+            By accessing and using Aninew, you agree to be bound by these Terms of Service and all applicable laws
+            and regulations. If you do not agree with any of these terms, you are prohibited from using or accessing this site.
           </p>
 
-          <h2>2. Description of Service</h2>
-          <p>
-            AniStream provides a platform for streaming anime content. We offer both free content supported by 
-            advertisements and premium content available with paid subscriptions.
+          <h2 className="text-2xl font-semibold mt-8 mb-4">1. Services</h2>
+          <p className="mb-4">
+            Aninew provides a platform for streaming anime content. We offer both free content supported by
+            advertisements and premium content available through subscription.
           </p>
 
-          <h2>3. User Accounts</h2>
+          <h2>2. User Accounts</h2>
           <p>
             To access certain features of the website, you may be required to register for an account. You are 
             responsible for maintaining the confidentiality of your account information and for all activities that 
@@ -46,7 +45,7 @@ export default function TermsPage() {
             <li>Be responsible for all activities that occur under your account</li>
           </ul>
 
-          <h2>4. User Conduct</h2>
+          <h2>3. User Conduct</h2>
           <p>
             You agree not to:
           </p>
@@ -60,14 +59,15 @@ export default function TermsPage() {
             <li>Upload or transmit any viruses or harmful code</li>
           </ul>
 
-          <h2>5. Content and Copyright</h2>
-          <p>
-            All content provided on AniStream is owned by us or our licensors and is protected by copyright, 
-            trademark, and other intellectual property laws. You may not reproduce, distribute, modify, create 
-            derivative works from, or publicly display content from our service without written permission.
+          <h2 className="text-2xl font-semibold mt-8 mb-4">4. Intellectual Property</h2>
+          <p className="mb-4">
+            All content provided on Aninew is owned by us or our licensors and is protected by copyright,
+            trademark, and other intellectual property laws. Our service and its original content, features, and
+            functionality are owned by us and are protected by international copyright, trademark, patent, trade secret,
+            and other intellectual property or proprietary rights laws.
           </p>
 
-          <h2>6. Subscription and Payments</h2>
+          <h2>5. Subscription and Payments</h2>
           <p>
             We offer subscription plans that provide access to premium content. By subscribing, you agree to:
           </p>
@@ -78,33 +78,34 @@ export default function TermsPage() {
             <li>Be responsible for any taxes applicable to your purchase</li>
           </ul>
 
-          <h2>7. Cancellation and Refund Policy</h2>
+          <h2>6. Cancellation and Refund Policy</h2>
           <p>
             You may cancel your subscription at any time. Cancellation will take effect at the end of your current 
             billing period. We do not provide refunds for the unused portion of your subscription, except where 
             required by law.
           </p>
 
-          <h2>8. Changes to Service</h2>
+          <h2>7. Changes to Service</h2>
           <p>
             We reserve the right to modify, suspend, or discontinue any part of our service at any time. We may 
             also modify prices and features with notice to users.
           </p>
 
-          <h2>9. Limitation of Liability</h2>
-          <p>
-            To the maximum extent permitted by law, AniStream and its affiliates shall not be liable for any 
-            indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, 
-            or goodwill, arising from your use of our service.
+          <h2 className="text-2xl font-semibold mt-8 mb-4">8. Limitation of Liability</h2>
+          <p className="mb-4">
+            To the maximum extent permitted by law, Aninew and its affiliates shall not be liable for any
+            indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues,
+            whether incurred directly or indirectly, or any loss of data, use, goodwill, or other intangible losses
+            resulting from your access to or use of or inability to access or use the service.
           </p>
 
-          <h2>10. Governing Law</h2>
+          <h2>9. Governing Law</h2>
           <p>
             These Terms shall be governed by the laws of Japan, without regard to its conflict of law provisions. 
             Any disputes arising under these Terms shall be resolved in the courts located in Tokyo, Japan.
           </p>
 
-          <h2>11. Changes to Terms</h2>
+          <h2>10. Changes to Terms</h2>
           <p>
             We reserve the right to modify these Terms at any time. Changes will be effective immediately upon 
             posting to the website. Your continued use of the website after any changes indicates your acceptance 

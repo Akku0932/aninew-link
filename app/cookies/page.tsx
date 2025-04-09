@@ -22,9 +22,9 @@ export default function CookiePolicyPage() {
 
           <h2>1. Introduction</h2>
           <p>
-            This Cookie Policy explains how AniStream ("we", "us", or "our") uses cookies and similar technologies 
-            to recognize you when you visit our website. It explains what these technologies are and why we use them, 
-            as well as your rights to control our use of them.
+            This Cookie Policy explains how Aninew ("we", "us", or "our") uses cookies and similar technologies 
+            to recognize you when you visit our website and use our services ("Services"). It explains what these technologies are and 
+            why we use them, as well as your rights to control our use of them.
           </p>
           <p>
             By continuing to use our site, you are agreeing to our use of cookies as described in this Cookie Policy.
@@ -37,7 +37,7 @@ export default function CookiePolicyPage() {
             as to provide reporting information.
           </p>
           <p>
-            Cookies set by the website owner (in this case, AniStream) are called "first-party cookies". Cookies set 
+            Cookies set by the website owner (in this case, Aninew) are called "first-party cookies". Cookies set 
             by parties other than the website owner are called "third-party cookies". Third-party cookies enable third-party 
             features or functionality to be provided on or through the website (e.g., advertising, interactive content, 
             and analytics). The parties that set these third-party cookies can recognize your computer both when it visits 
@@ -120,7 +120,7 @@ export default function CookiePolicyPage() {
           <h2>6. Where Can You Get Further Information?</h2>
           <p>
             If you have any questions about our use of cookies or other technologies, please email us at 
-            <a href="mailto:cookies@anistream.com"> cookies@anistream.com</a> or contact us through the methods described in our 
+            <a href="mailto:cookies@aninew.com"> cookies@aninew.com</a> or contact us through the methods described in our 
             <Link href="/privacy" className="text-primary hover:underline"> Privacy Policy</Link>.
           </p>
         </div>
