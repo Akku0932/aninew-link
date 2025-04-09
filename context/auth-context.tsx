@@ -170,7 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           grant_type: "authorization_code",
           client_id: ANILIST_CLIENT_ID,
           client_secret: ANILIST_CLIENT_SECRET,
-          redirect_uri: "https://aninew-link.vercel.app/auth/callback",
+          redirect_uri: "http://localhost:3000/auth/callback",
           code: code
         })
       });
