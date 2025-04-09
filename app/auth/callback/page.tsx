@@ -31,8 +31,17 @@ export default function AuthCallback() {
           return;
         }
 
-        // Process authentication
-        await loginWithMAL(code);
+        // Get the code verifier we stored earlier
+        const codeVerifier = localStorage.getItem('mal_code_verifier');
+        if (!codeVerifier) {
+          console.warn("No code verifier found, using default");
+        }
+
+        // Process authentication with the code and code verifier
+        await loginWithMAL(code, codeVerifier || undefined);
+        
+        // Remove the code verifier from storage
+        localStorage.removeItem('mal_code_verifier');
         
         // Redirect to home page after successful login
         router.push("/");

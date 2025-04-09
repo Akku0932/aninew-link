@@ -5,8 +5,8 @@ const MAL_CLIENT_SECRET = "eea5c9902db45b3e7fb543a9f81c7a3784a8d23c7836cd76a0bb8
 
 export async function POST(request: Request) {
   try {
-    // Get the authorization code from the request body
-    const { code } = await request.json();
+    // Get the authorization code and code verifier from the request body
+    const { code, code_verifier } = await request.json();
 
     if (!code) {
       return NextResponse.json(
@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const redirectUri = 'https://aninew-link.vercel.app/auth/callback';
 
     // Exchange the code for a token with MyAnimeList
+    // Using Scheme 2: including client credentials in the request body
     const tokenResponse = await fetch('https://myanimelist.net/v1/oauth2/token', {
       method: 'POST',
       headers: {
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
         grant_type: 'authorization_code',
         code,
         redirect_uri: redirectUri,
+        code_verifier: code_verifier || 'default_verifier', // Fallback for compatibility
       }).toString(),
     });
 

@@ -28,7 +28,7 @@ type AuthContextType = {
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
-  loginWithMAL: (code: string) => Promise<void>
+  loginWithMAL: (code: string, codeVerifier?: string) => Promise<void>
   logout: () => void
   addToFavorites: (anime: Omit<AnimeItem, "addedAt">) => void
   removeFromFavorites: (animeId: string) => void
@@ -68,7 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (code) {
       // Remove code from URL to prevent issues on refresh
       window.history.replaceState({}, document.title, window.location.pathname)
-      loginWithMAL(code).catch(console.error)
+      // Get the code verifier we stored earlier
+      const codeVerifier = localStorage.getItem('mal_code_verifier');
+      loginWithMAL(code, codeVerifier || undefined).catch(console.error)
     }
   }, [])
 
@@ -155,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
-  const loginWithMAL = async (code: string) => {
+  const loginWithMAL = async (code: string, codeVerifier?: string) => {
     // Exchange the code for a token with MyAnimeList API via our proxy endpoint
     setIsLoading(true)
     
@@ -168,7 +170,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ 
+          code,
+          code_verifier: codeVerifier || 'default_verifier' // Send code verifier if available
+        })
       });
 
       console.log("MyAnimeList token response status:", response.status);
