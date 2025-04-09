@@ -16,9 +16,8 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import Image from "next/image"
 import Link from "next/link"
-import AnimeTitleMarquee from "@/components/anime-title-marquee"
 import AnimeMALButton from "@/components/anime-mal-button"
-import AnimeFavoriteButton from "@/components/anime-favorite-button"
+import AnimeMALStatus from "@/components/anime-mal-status"
 
 type Episode = {
   title: string
@@ -1756,7 +1755,7 @@ export default function WatchPage() {
                   </p>
                   
                   {/* Add MAL buttons */}
-                  <div className="flex sm:mt-0 mt-2">
+                  <div className="flex sm:mt-0 mt-2 items-center gap-2">
                     <AnimeMALButton
                       animeId={id as string}
                       malId={animeInfo?.info?.malId?.toString()}
@@ -1766,12 +1765,12 @@ export default function WatchPage() {
                       variant="icon"
                     />
                     
-                    <AnimeFavoriteButton
+                    <AnimeMALStatus
                       animeId={id as string}
+                      malId={animeInfo?.info?.malId?.toString()}
                       title={animeInfo?.info?.name || ""}
-                      image={animeInfo?.info?.img || ""}
-                      type={animeInfo?.info?.type || "TV"}
-                      className="ml-2"
+                      compact={true}
+                      showLabel={false}
                     />
                   </div>
                 </div>

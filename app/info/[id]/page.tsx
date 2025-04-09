@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import AnimeMALButton from "@/components/anime-mal-button"
-import AnimeFavoriteButton from "@/components/anime-favorite-button"
+import AnimeMALStatus from "@/components/anime-mal-status"
 
 // Update the types to match the API responses
 type AnimeInfo = {
@@ -324,13 +324,11 @@ export default function AnimeInfoPage() {
                 </Tooltip>
               </TooltipProvider>
 
-              <div className="grid grid-cols-2 gap-2">
-                <AnimeFavoriteButton
+              <div className="grid grid-1 gap-2">
+                <AnimeMALStatus
                   animeId={id as string}
-                  anilistId={info.anilistId}
+                  malId={info.malId}
                   title={info.title || ""}
-                  image={info.image || ""}
-                  type={info.type || "TV"}
                   className="w-full"
                 />
 
