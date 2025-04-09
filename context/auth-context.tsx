@@ -164,10 +164,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithMAL = async (code: string, codeVerifier?: string) => {
     // Exchange the code for a token with MyAnimeList API via our proxy endpoint
-    setIsLoading(true)
+    setIsLoading(true);
     
     try {
-      console.log("Starting MyAnimeList authentication with code:", code);
+      console.log("[MAL Login] Starting MyAnimeList authentication with code:", code.substring(0, 10) + "...");
+      console.log("[MAL Login] Code verifier available:", !!codeVerifier);
       
       // Call our proxy API
       const response = await fetch("/api/auth/mal", {
@@ -177,26 +178,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({ 
           code,
-          code_verifier: codeVerifier || 'default_verifier' // Send code verifier if available
+          code_verifier: codeVerifier || undefined // Send code verifier if available
         })
       });
 
-      console.log("MyAnimeList token response status:", response.status);
+      console.log("[MAL Login] Token response status:", response.status);
       
       // Check if the response is not ok and log the error
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error("MyAnimeList token error response:", errorData);
-        throw new Error(`MyAnimeList token exchange failed: ${response.status} ${response.statusText}`);
+        let errorMessage = `MyAnimeList token exchange failed: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          console.error("[MAL Login] Token error response:", errorData);
+          errorMessage += ` - ${JSON.stringify(errorData)}`;
+        } catch (e) {
+          const errorText = await response.text();
+          console.error("[MAL Login] Token error text:", errorText);
+          errorMessage += ` - ${errorText}`;
+        }
+        throw new Error(errorMessage);
       }
       
       // Try to parse the response
       let tokenData;
       try {
         tokenData = await response.json();
-        console.log("MyAnimeList token response data:", tokenData);
+        console.log("[MAL Login] Token received, expires in:", tokenData.expires_in);
       } catch (parseError) {
-        console.error("Failed to parse MyAnimeList token response:", parseError);
+        console.error("[MAL Login] Failed to parse token response:", parseError);
         throw new Error("Invalid response from MyAnimeList");
       }
       
@@ -206,6 +215,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!token) {
         throw new Error("No access token received from MyAnimeList");
       }
+      
+      console.log("[MAL Login] Successfully obtained access token");
       
       // Create base user data
       let userData: User = {

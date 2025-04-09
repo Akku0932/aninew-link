@@ -387,16 +387,25 @@ export default function ProfilePage() {
                     <p className="text-sm text-muted-foreground mb-4">
                       Link your account to sync your anime list
                     </p>
-                    <Button asChild>
-                      <Link 
-                        href="https://myanimelist.net/v1/oauth2/authorize?response_type=code&client_id=5105b8eb05adcc56e3c1eff800c98a30&redirect_uri=http://localhost:3000/profile&code_challenge=randomstring&code_challenge_method=plain"
-                        onClick={() => {
-                          // Store the code verifier for PKCE
-                          localStorage.setItem('mal_code_verifier', 'randomstring');
-                        }}
-                      >
-                        Connect with MyAnimeList
-                      </Link>
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/auth/mal/authorize');
+                          if (!response.ok) throw new Error('Failed to start MAL auth');
+                          
+                          const { authUrl, codeVerifier, state } = await response.json();
+                          
+                          localStorage.setItem('mal_code_verifier', codeVerifier);
+                          localStorage.setItem('mal_state', state);
+                          
+                          window.location.href = authUrl;
+                        } catch (error) {
+                          console.error('Error connecting to MyAnimeList:', error);
+                          // You could add a toast notification here
+                        }
+                      }}
+                    >
+                      Connect with MyAnimeList
                     </Button>
                   </div>
                 )}

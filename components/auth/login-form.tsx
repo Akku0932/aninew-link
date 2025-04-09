@@ -43,35 +43,34 @@ export default function LoginForm() {
     }
   }
 
-  const handleMALLogin = () => {
-    // Generate a code verifier (a random string of length between 43-128 chars)
-    const generateCodeVerifier = () => {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-      let result = '';
-      const length = Math.floor(Math.random() * (128 - 43 + 1)) + 43; // Length between 43-128
+  const handleMALLogin = async () => {
+    try {
+      setIsLoading(true);
       
-      for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      // Call our authorization API to get the auth URL and code verifier
+      const response = await fetch('/api/auth/mal/authorize');
+      
+      if (!response.ok) {
+        throw new Error('Failed to start MyAnimeList authentication');
       }
       
-      return result;
-    };
-
-    // MAL uses the plain method for PKCE, so code_challenge is the same as code_verifier
-    const codeVerifier = generateCodeVerifier();
-    const codeChallenge = codeVerifier; // For 'plain' method, they are the same
-    
-    // Store the code verifier in localStorage to use later
-    localStorage.setItem('mal_code_verifier', codeVerifier);
-    
-    // Redirect to MAL OAuth flow
-    const redirectUri = encodeURIComponent('https://aninew-link.vercel.app/auth/callback');
-    const responseType = 'code';
-    const clientId = '5105b8eb05adcc56e3c1eff800c98a30';
-    const codeChallengeMethod = 'plain';
-    
-    // Redirect to MyAnimeList OAuth flow with PKCE
-    window.location.href = `https://myanimelist.net/v1/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&code_challenge=${codeChallenge}&code_challenge_method=${codeChallengeMethod}`;
+      const { authUrl, codeVerifier, state } = await response.json();
+      
+      if (!authUrl || !codeVerifier) {
+        throw new Error('Invalid authentication data received');
+      }
+      
+      // Store the code verifier and state in localStorage to use later
+      localStorage.setItem('mal_code_verifier', codeVerifier);
+      localStorage.setItem('mal_state', state);
+      
+      // Redirect to the MyAnimeList OAuth flow
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error('Error starting MyAnimeList authentication:', error);
+      setError('Failed to start MyAnimeList authentication. Please try again.');
+      setIsLoading(false);
+    }
   }
 
   return (
