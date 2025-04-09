@@ -17,7 +17,6 @@ import {
 import { cn } from "@/lib/utils"
 import AnimeMALButton from "@/components/anime-mal-button"
 import AnimeMALStatus from "@/components/anime-mal-status"
-import AnimeFavoriteButton from "@/components/anime-favorite-button"
 
 // Update the types to match the API responses
 type AnimeInfo = {
@@ -325,17 +324,15 @@ export default function AnimeInfoPage() {
                 </Tooltip>
               </TooltipProvider>
 
-              <AnimeFavoriteButton
+              <AnimeMALStatus
                 animeId={id as string}
-                anilistId={info.anilistId}
+                malId={info.malId}
                 title={info.title || info.name || ""}
-                image={info.image || info.img || ""}
-                type={info.type}
                 className="w-full"
               />
             </div>
 
-            {/* Enhanced MyAnimeList Integration Panel */}
+            {/* MyAnimeList Integration Panel */}
             <div className="rounded-lg dark:bg-gray-800 bg-white p-4 border dark:border-gray-700 border-gray-200">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center">
@@ -370,10 +367,10 @@ export default function AnimeInfoPage() {
                   <AnimeMALStatus
                     animeId={id as string}
                     malId={info.malId}
-                    title={info.title || ""}
+                    title={info.title || info.name || ""}
                     showLabel={false}
                     className="w-full"
-                    totalEpisodes={info.eps ? parseInt(info.eps) : 0}
+                    totalEpisodes={info.eps ? Number(info.eps) : 0}
                   />
                 </div>
               ) : (

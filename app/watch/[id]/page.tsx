@@ -18,7 +18,6 @@ import Image from "next/image"
 import Link from "next/link"
 import AnimeMALButton from "@/components/anime-mal-button"
 import AnimeMALStatus from "@/components/anime-mal-status"
-import AnimeFavoriteButton from "@/components/anime-favorite-button"
 
 type Episode = {
   title: string
@@ -1755,17 +1754,8 @@ export default function WatchPage() {
                     {animeInfo?.info?.description || "No description available"}
                   </p>
                   
-                  {/* Add MAL buttons */}
-                  <div className="flex sm:mt-0 mt-2 items-center gap-2">
-                    <AnimeFavoriteButton
-                      animeId={id as string}
-                      anilistId={animeInfo?.info?.anilistId}
-                      title={animeInfo?.info?.name || ""}
-                      image={animeInfo?.info?.img || ""}
-                      type={animeInfo?.info?.type}
-                      className="mr-1"
-                    />
-                    
+                  {/* MAL buttons */}
+                  <div className="flex sm:mt-0 mt-2 items-center gap-2">                    
                     <AnimeMALButton
                       animeId={id as string}
                       malId={animeInfo?.info?.malId?.toString()}
