@@ -78,14 +78,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await fetch("https://graphql.anilist.co", {
+      // Use our server-side proxy instead of direct GraphQL calls
+      const response = await fetch("/api/auth/anilist/graphql", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": `Bearer ${user.anilistToken}`
         },
         body: JSON.stringify({
+          token: user.anilistToken,
           query,
           variables
         })
@@ -155,26 +155,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const loginWithAniList = async (code: string) => {
-    // Exchange the code for a token with AniList API
+    // Exchange the code for a token with AniList API via our proxy endpoint
     setIsLoading(true)
     
     try {
       console.log("Starting AniList authentication with code:", code);
       
-      // Make the token exchange request
-      const response = await fetch("https://anilist.co/api/v2/oauth/token", {
+      // Instead of calling AniList directly, call our proxy API
+      const response = await fetch("/api/auth/anilist", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json"
         },
-        body: JSON.stringify({
-          grant_type: "authorization_code",
-          client_id: ANILIST_CLIENT_ID,
-          client_secret: ANILIST_CLIENT_SECRET,
-          redirect_uri: "https://aninew-link.vercel.app/auth/callback",
-          code: code
-        })
+        body: JSON.stringify({ code })
       });
 
       console.log("AniList token response status:", response.status);
@@ -196,26 +189,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Invalid response from AniList");
       }
       
-      // In a real implementation, you would use the actual token from the response
-      // const token = tokenData.access_token;
-      // For demo purposes, we'll simulate a successful response
-      const token = tokenData?.access_token || `simulated_anilist_token_${Date.now()}`;
+      // Use the actual token from the response
+      const token = tokenData?.access_token;
+      
+      if (!token) {
+        throw new Error("No access token received from AniList");
+      }
       
       // Get the user's profile from AniList using the token
-      // In a real app, we would make a GraphQL query to get user data
-      // const userResponse = await callAniListAPI(`
-      //   query {
-      //     Viewer {
-      //       id
-      //       name
-      //       avatar {
-      //         medium
-      //       }
-      //     }
-      //   }
-      // `);
+      // For a real implementation, we would make a GraphQL query to get user data
+      // let userData: User;
+      // 
+      // try {
+      //   const anilistUserResponse = await fetch("https://graphql.anilist.co", {
+      //     method: "POST",
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //       "Authorization": `Bearer ${token}`
+      //     },
+      //     body: JSON.stringify({
+      //       query: `
+      //         query {
+      //           Viewer {
+      //             id
+      //             name
+      //             avatar {
+      //               large
+      //             }
+      //           }
+      //         }
+      //       `
+      //     })
+      //   });
+      //   
+      //   const anilistUserData = await anilistUserResponse.json();
+      //   const viewer = anilistUserData.data.Viewer;
+      //   
+      //   userData = {
+      //     id: `anilist-${viewer.id}`,
+      //     name: viewer.name,
+      //     email: `user${viewer.id}@anilist.co`, // AniList doesn't provide email
+      //     avatarUrl: viewer.avatar?.large,
+      //     provider: "anilist",
+      //     favorites: [],
+      //     anilistToken: token
+      //   };
+      // } catch (error) {
+      //   console.error("Failed to fetch AniList user profile:", error);
       
-      // Mock the user data
+      // For demo, mock user data
       const userData: User = {
         id: `anilist-${Date.now()}`,
         name: "AniList User",
@@ -237,7 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       throw error;
     }
-  }
+  };
 
   const register = async (name: string, email: string, password: string) => {
     // Note: In a real app, this would make an API request
