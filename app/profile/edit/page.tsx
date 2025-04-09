@@ -202,33 +202,33 @@ export default function EditProfilePage() {
                   </div>
                 )}
               </div>
-            </CardContent>
-            
-            <CardFooter className="flex flex-col items-start space-y-2 sm:flex-row sm:justify-between sm:space-y-0">
-              <div>
-                {saveMessage && (
-                  <p className={`text-sm ${saveMessage.includes("successfully") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                    {saveMessage}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"></div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-      </div>
+            </div>
+          </CardContent>
+          
+          <CardFooter className="flex flex-col items-start space-y-2 sm:flex-row sm:justify-between sm:space-y-0">
+            <div>
+              {saveMessage && (
+                <p className={`text-sm ${saveMessage.includes("successfully") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                  {saveMessage}
+                </p>
+              )}
+            </div>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </CardFooter>
+        </form>
+      </Card>
     </div>
   );
 } 

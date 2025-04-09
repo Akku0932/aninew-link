@@ -1757,9 +1757,9 @@ export default function WatchPage() {
                   {/* Add MAL buttons */}
                   <div className="flex sm:mt-0 mt-2">
                     <AnimeMALButton
-                      animeId={params.id as string}
-                      malId={animeInfo?.info?.malId}
-                      title={animeInfo?.info?.title || ""}
+                      animeId={id as string}
+                      malId={animeInfo?.info?.malId?.toString()}
+                      title={animeInfo?.info?.name || ""}
                       image={animeInfo?.info?.img || ""}
                       type="TV"
                       variant="icon"
