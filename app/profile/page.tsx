@@ -76,13 +76,17 @@ export default function ProfilePage() {
               </div>
               
               <div className="flex w-full flex-col space-y-2">
-                <Button variant="outline" size="sm" className="justify-start">
-                  <UserIcon className="mr-2 h-4 w-4" />
-                  Edit Profile
+                <Button variant="outline" size="sm" className="justify-start" asChild>
+                  <Link href="/profile/edit">
+                    <UserIcon className="mr-2 h-4 w-4" />
+                    Edit Profile
+                  </Link>
                 </Button>
-                <Button variant="outline" size="sm" className="justify-start">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
+                <Button variant="outline" size="sm" className="justify-start" asChild>
+                  <Link href="/profile/settings">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
                 </Button>
                 <Button 
                   variant="destructive" 

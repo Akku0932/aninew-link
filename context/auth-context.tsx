@@ -10,6 +10,7 @@ type User = {
   provider?: "email" | "anilist"
   favorites?: AnimeItem[]
   anilistToken?: string
+  bio?: string
 }
 
 type AnimeItem = {
@@ -196,49 +197,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("No access token received from AniList");
       }
       
-      // Get the user's profile from AniList using the token
-      // For a real implementation, we would make a GraphQL query to get user data
-      // let userData: User;
-      // 
-      // try {
-      //   const anilistUserResponse = await fetch("https://graphql.anilist.co", {
-      //     method: "POST",
-      //     headers: {
-      //       "Content-Type": "application/json",
-      //       "Authorization": `Bearer ${token}`
-      //     },
-      //     body: JSON.stringify({
-      //       query: `
-      //         query {
-      //           Viewer {
-      //             id
-      //             name
-      //             avatar {
-      //               large
-      //             }
-      //           }
-      //         }
-      //       `
-      //     })
-      //   });
-      //   
-      //   const anilistUserData = await anilistUserResponse.json();
-      //   const viewer = anilistUserData.data.Viewer;
-      //   
-      //   userData = {
-      //     id: `anilist-${viewer.id}`,
-      //     name: viewer.name,
-      //     email: `user${viewer.id}@anilist.co`, // AniList doesn't provide email
-      //     avatarUrl: viewer.avatar?.large,
-      //     provider: "anilist",
-      //     favorites: [],
-      //     anilistToken: token
-      //   };
-      // } catch (error) {
-      //   console.error("Failed to fetch AniList user profile:", error);
-      
-      // For demo, mock user data
-      const userData: User = {
+      // Create base user data
+      let userData: User = {
         id: `anilist-${Date.now()}`,
         name: "AniList User",
         email: `user${Date.now()}@anilist.co`,
@@ -248,7 +208,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         anilistToken: token
       };
       
-      console.log("Created user data:", userData.id);
+      // Get the user's profile and favorites from AniList
+      try {
+        // Fetch the user profile
+        const userProfileResponse = await fetch("/api/auth/anilist/graphql", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token,
+            query: `
+              query {
+                Viewer {
+                  id
+                  name
+                  avatar {
+                    large
+                  }
+                  favourites {
+                    anime {
+                      nodes {
+                        id
+                        title {
+                          romaji
+                          english
+                        }
+                        coverImage {
+                          large
+                        }
+                        format
+                      }
+                    }
+                  }
+                }
+              }
+            `
+          })
+        });
+
+        if (userProfileResponse.ok) {
+          const userProfileData = await userProfileResponse.json();
+          console.log("AniList user profile data:", userProfileData);
+          
+          if (userProfileData.data?.Viewer) {
+            const viewer = userProfileData.data.Viewer;
+            
+            // Update user data with profile information
+            userData = {
+              ...userData,
+              id: `anilist-${viewer.id}`,
+              name: viewer.name || userData.name,
+              avatarUrl: viewer.avatar?.large || userData.avatarUrl,
+            };
+            
+            // Process favorites
+            const favorites: AnimeItem[] = [];
+            
+            if (viewer.favourites?.anime?.nodes && Array.isArray(viewer.favourites.anime.nodes)) {
+              viewer.favourites.anime.nodes.forEach((anime: any) => {
+                favorites.push({
+                  id: `anilist-media-${anime.id}`,
+                  anilistId: String(anime.id),
+                  title: anime.title.english || anime.title.romaji,
+                  image: anime.coverImage?.large || "/placeholder.svg",
+                  type: anime.format || "TV",
+                  addedAt: Date.now()
+                });
+              });
+            }
+            
+            userData.favorites = favorites;
+            console.log(`Fetched ${favorites.length} favorites from AniList`);
+          }
+        } else {
+          console.error("Failed to fetch AniList user profile:", await userProfileResponse.text());
+        }
+      } catch (profileError) {
+        console.error("Error fetching AniList profile:", profileError);
+        // Continue with basic user data
+      }
+      
+      console.log("Created user data:", userData.id, "with", userData.favorites?.length || 0, "favorites");
       
       localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
@@ -326,15 +367,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // If user is connected to AniList and we have an AniList ID for the anime
     if (user.provider === "anilist" && user.anilistToken && anime.anilistId) {
       try {
-        // In a real implementation, we'd make a GraphQL mutation to toggle favorite
-        // const result = await callAniListAPI(`
-        //   mutation {
-        //     ToggleFavourite(animeId: ${anime.anilistId}) {
-        //       anime { id }
-        //     }
-        //   }
-        // `);
-        console.log(`Toggled favorite status for anime with AniList ID: ${anime.anilistId}`);
+        // Make a GraphQL mutation to toggle favorite status
+        const response = await fetch("/api/auth/anilist/graphql", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token: user.anilistToken,
+            query: `
+              mutation ToggleFavorite($animeId: Int) {
+                ToggleFavourite(animeId: $animeId) {
+                  anime {
+                    nodes {
+                      id
+                    }
+                  }
+                }
+              }
+            `,
+            variables: {
+              animeId: parseInt(anime.anilistId, 10)
+            }
+          })
+        });
+
+        const data = await response.json();
+        console.log("AniList toggle favorite response:", data);
+        
+        if (data.errors) {
+          console.error("AniList toggle favorite errors:", data.errors);
+        } else {
+          console.log(`Successfully toggled favorite status for anime with AniList ID: ${anime.anilistId}`);
+        }
       } catch (error) {
         console.error("Error toggling AniList favorite:", error);
       }
@@ -379,15 +444,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // If user is connected to AniList and we have an AniList ID for the anime
     if (user.provider === "anilist" && user.anilistToken && animeToRemove?.anilistId) {
       try {
-        // In a real implementation, we'd make a GraphQL mutation to toggle favorite
-        // const result = await callAniListAPI(`
-        //   mutation {
-        //     ToggleFavourite(animeId: ${animeToRemove.anilistId}) {
-        //       anime { id }
-        //     }
-        //   }
-        // `);
-        console.log(`Toggled favorite status for anime with AniList ID: ${animeToRemove.anilistId}`);
+        // Make a GraphQL mutation to toggle favorite status (same mutation as add)
+        const response = await fetch("/api/auth/anilist/graphql", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token: user.anilistToken,
+            query: `
+              mutation ToggleFavorite($animeId: Int) {
+                ToggleFavourite(animeId: $animeId) {
+                  anime {
+                    nodes {
+                      id
+                    }
+                  }
+                }
+              }
+            `,
+            variables: {
+              animeId: parseInt(animeToRemove.anilistId, 10)
+            }
+          })
+        });
+
+        const data = await response.json();
+        console.log("AniList toggle favorite response:", data);
+        
+        if (data.errors) {
+          console.error("AniList toggle favorite errors:", data.errors);
+        } else {
+          console.log(`Successfully toggled favorite status for anime with AniList ID: ${animeToRemove.anilistId}`);
+        }
       } catch (error) {
         console.error("Error toggling AniList favorite:", error);
       }
@@ -430,15 +519,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || !user.anilistToken) return false;
     
     try {
-      // In a real implementation, we'd make a GraphQL mutation to update the anime status
-      // const result = await callAniListAPI(`
-      //   mutation {
-      //     SaveMediaListEntry(mediaId: ${anilistId}, status: ${status}) {
-      //       id
-      //       status
-      //     }
-      //   }
-      // `);
+      // Make a GraphQL mutation to update the anime status
+      const response = await fetch("/api/auth/anilist/graphql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token: user.anilistToken,
+          query: `
+            mutation SaveMediaListEntry($mediaId: Int, $status: MediaListStatus) {
+              SaveMediaListEntry(mediaId: $mediaId, status: $status) {
+                id
+                status
+                media {
+                  id
+                  title {
+                    romaji
+                    english
+                  }
+                }
+              }
+            }
+          `,
+          variables: {
+            mediaId: parseInt(anilistId, 10),
+            status: status
+          }
+        })
+      });
+
+      const data = await response.json();
+      console.log(`AniList add to list response:`, data);
+      
+      if (data.errors) {
+        console.error("AniList add to list errors:", data.errors);
+        return false;
+      }
       
       console.log(`Added anime with AniList ID: ${anilistId} to list with status: ${status}`);
       return true;
