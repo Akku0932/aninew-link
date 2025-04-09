@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Play, Info, Star, Calendar, Clock, List, ChevronDown, Bookmark, Users, Heart } from "lucide-react"
+import { Play, Info, Star, Calendar, Clock, List, ChevronDown, Bookmark, Users, Heart, ExternalLink, Pause } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -324,24 +324,62 @@ export default function AnimeInfoPage() {
                 </Tooltip>
               </TooltipProvider>
 
-              <div className="grid grid-1 gap-2">
-                <AnimeMALStatus
-                  animeId={id as string}
-                  malId={info.malId}
-                  title={info.title || ""}
-                  className="w-full"
-                />
+              <AnimeMALStatus
+                animeId={id as string}
+                malId={info.malId}
+                title={info.title || ""}
+                className="w-full"
+              />
+            </div>
 
-                <AnimeMALButton
-                  animeId={id as string}
-                  malId={info.malId}
-                  title={info.title || ""}
-                  image={info.image || ""}
-                  type={info.type || "TV"}
-                  className="w-full"
-                  variant="button"
-                />
+            {/* MyAnimeList Integration Panel */}
+            <div className="rounded-lg dark:bg-gray-800 bg-white p-4 border dark:border-gray-700 border-gray-200">
+              <div className="flex items-center mb-3">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 72 72"
+                  className="mr-2"
+                >
+                  <path fill="#1100ff" d="M48 16H24a8 8 0 0 0-8 8v24a8 8 0 0 0 8 8h24a8 8 0 0 0 8-8V24a8 8 0 0 0-8-8Z"/>
+                  <path fill="#fff" d="M34 52h-6V20h6zm4-32h6v20l-6-3zm0 20 6 3v9h-6z"/>
+                </svg>
+                <h3 className="font-semibold dark:text-white text-gray-900">MyAnimeList</h3>
               </div>
+              
+              {info.malId ? (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm dark:text-gray-400 text-gray-600">MAL ID</span>
+                    <a
+                      href={`https://myanimelist.net/anime/${info.malId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-blue-500 hover:underline flex items-center"
+                    >
+                      {info.malId}
+                      <ExternalLink className="ml-1 h-3 w-3" />
+                    </a>
+                  </div>
+                  
+                  <div className="flex flex-col">
+                    <span className="text-sm dark:text-gray-400 text-gray-600 mb-1">Add to your list</span>
+                    <AnimeMALStatus
+                      animeId={id as string}
+                      malId={info.malId}
+                      title={info.title || ""}
+                      showLabel={false}
+                      className="w-full"
+                      totalEpisodes={info.eps ? parseInt(info.eps) : 0}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm dark:text-gray-400 text-gray-600 text-center py-2">
+                  No MyAnimeList ID available for this anime
+                </div>
+              )}
             </div>
 
             <div className="rounded-lg dark:bg-gray-800 bg-white p-4 border dark:border-gray-700 border-gray-200">
