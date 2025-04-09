@@ -153,6 +153,9 @@ export function Footer() {
               <Link href="/dmca" className="text-muted-foreground hover:text-foreground transition-colors">
                 DMCA
               </Link>
+              <Link href="/cookies" className="text-muted-foreground hover:text-foreground transition-colors">
+                Cookie Policy
+              </Link>
             </nav>
           </div>
           
