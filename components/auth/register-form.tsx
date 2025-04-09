@@ -58,7 +58,7 @@ export default function RegisterForm() {
   const handleAniListSignup = () => {
     setIsLoading(true)
     // Redirect to AniList OAuth flow with the provided client ID
-    window.location.href = "https://anilist.co/api/v2/oauth/authorize?client_id=25870&redirect_uri=http://localhost:3000/auth/callback&response_type=code"
+    window.location.href = "https://anilist.co/api/v2/oauth/authorize?client_id=25870&redirect_uri=https://aninew-link.vercel.app/auth/callback&response_type=code"
   }
 
   return (
