@@ -15,7 +15,28 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "AniNew - Watch Anime Online",
-  description: "Watch the latest anime online for free in HD quality with English subtitles or dubbed.",
+  description: "Watch the latest anime online for free in HD quality with English subtitles or dubbed. AniNew is your one-stop destination for all your anime needs.",
+  keywords: "anime, streaming, watch anime, free anime, anime online, HD anime, subbed anime, dubbed anime, AniNew",
+  authors: [{ name: "AniNew Team" }],
+  openGraph: {
+    title: "AniNew - Watch Anime Online",
+    description: "Watch the latest anime online for free in HD quality with English subtitles or dubbed.",
+    url: "https://aninew.vercel.app",
+    siteName: "AniNew",
+    locale: "en_US",
+    type: "website",
+  },
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-16x16.png",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
+  twitter: {
+    card: "summary_large_image",
+    title: "AniNew - Watch Anime Online",
+    description: "Watch the latest anime online for free in HD quality with English subtitles or dubbed.",
+  },
 };
 
 export default function RootLayout({
