@@ -2,22 +2,24 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
-  size?: "small" | "default" | "large";
+  size?: "small" | "medium" | "large";
   animated?: boolean;
   className?: string;
+  withLink?: boolean;
 }
 
-export default function Logo({ size = "default", animated = true, className }: LogoProps) {
+export default function Logo({ size = "medium", animated = true, className, withLink = true }: LogoProps) {
   const [gradientPos, setGradientPos] = useState(0);
 
   useEffect(() => {
     if (!animated) return;
     
     const interval = setInterval(() => {
-      setGradientPos((prev) => (prev + 1) % 200);
+      setGradientPos((prev) => (prev >= 100 ? 0 : prev + 1));
     }, 50);
     
     return () => clearInterval(interval);
@@ -25,28 +27,58 @@ export default function Logo({ size = "default", animated = true, className }: L
 
   const sizeClasses = {
     small: "text-xl",
-    default: "text-2xl",
-    large: "text-3xl"
+    medium: "text-2xl",
+    large: "text-4xl"
   };
 
   const gradientStyle = {
-    backgroundImage: 'linear-gradient(90deg, #4776E6, #8E54E9, #4776E6)',
-    backgroundSize: '200% 100%',
-    backgroundPosition: `${gradientPos}% 0%`,
+    backgroundImage: `linear-gradient(90deg, 
+      rgba(59,130,246,1) ${gradientPos - 50}%, 
+      rgba(236,72,153,1) ${gradientPos}%, 
+      rgba(59,130,246,1) ${gradientPos + 50}%)`,
+    backgroundSize: "200% auto",
+    backgroundClip: "text",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: animated ? "transparent" : "initial",
+    color: animated ? "transparent" : "initial"
   };
 
-  return (
-    <Link href="/">
-      <span 
+  const logoContent = (
+    <span 
+      style={animated ? gradientStyle : {}}
+      className={animated ? "" : "text-blue-500 dark:text-blue-400"}
+    >
+      Ani
+      <span className={animated ? "" : "text-pink-500 dark:text-pink-400"}>
+        new
+      </span>
+    </span>
+  );
+
+  if (withLink) {
+    return (
+      <Link 
+        href="/" 
         className={cn(
-          "font-bold bg-clip-text text-transparent transition-all duration-300 hover:opacity-80",
+          "font-bold tracking-tighter transition-all duration-200 hover:scale-105",
           sizeClasses[size],
           className
         )}
-        style={gradientStyle}
       >
-        AniNew
-      </span>
-    </Link>
+        {logoContent}
+      </Link>
+    );
+  }
+
+  return (
+    <span 
+      className={cn(
+        "font-bold tracking-tighter",
+        sizeClasses[size],
+        className
+      )}
+    >
+      {logoContent}
+    </span>
   );
 } 

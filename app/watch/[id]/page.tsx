@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import Image from "next/image"
 import Link from "next/link"
+import AnimeFavoriteButton from "@/components/anime-favorite-button"
+import AnimeAniListButton from "@/components/anime-anilist-button"
 
 type Episode = {
   title: string
@@ -36,9 +38,11 @@ type AnimeInfo = {
     duration: string
     sub: number | null
     dub: number | null
+    raw?: number | null
     eps: number
     pg?: string
     quality?: string
+    anilistId?: string
   }
   otherInfo?: {
     genres?: string[]
@@ -1748,6 +1752,18 @@ export default function WatchPage() {
                   <p className="text-sm text-white/60 line-clamp-3">
                     {animeInfo?.info?.description || "No description available"}
                   </p>
+                  
+                  {/* Add AniList buttons */}
+                  <div className="flex mt-2">
+                    <AnimeAniListButton
+                      animeId={id as string}
+                      anilistId={animeInfo?.info?.anilistId}
+                      title={animeInfo?.info?.name || "Unknown Anime"}
+                      image={animeInfo?.info?.img || "/placeholder.svg"}
+                      type={animeInfo?.info?.type || "TV"}
+                      variant="icon"
+                    />
+                  </div>
                 </div>
               </div>
               

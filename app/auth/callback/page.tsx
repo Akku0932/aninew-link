@@ -1,28 +1,69 @@
-import { Suspense } from "react";
-import ClientAuthCallback from "./client-component";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
 import Logo from "@/components/logo";
 
-function LoadingFallback() {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 dark:bg-gray-900 bg-gray-50">
-      <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 shadow-md">
-        <div className="flex flex-col items-center text-center">
-          <Logo size="large" />
-          <h1 className="mt-6 text-xl font-semibold">Initializing...</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Loading authentication...</p>
-          <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-primary"></div>
-          </div>
+export default function AuthCallbackPage() {
+  const router = useRouter();
+  const { loginWithAniList } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function handleCallback() {
+      try {
+        // Get the code from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get("code");
+        
+        if (!code) {
+          setError("Authentication failed: No code provided");
+          setIsLoading(false);
+          return;
+        }
+        
+        // Process the auth code
+        await loginWithAniList(code);
+        
+        // Redirect after successful login
+        router.push("/profile");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Authentication failed");
+        setIsLoading(false);
+      }
+    }
+    
+    handleCallback();
+  }, [loginWithAniList, router]);
+
+  if (error) {
+    return (
+      <div className="flex min-h-[calc(100vh-80px)] flex-col items-center justify-center p-8">
+        <Logo size="large" />
+        <div className="mt-8 rounded-lg border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/30">
+          <h1 className="text-xl font-bold text-red-600 dark:text-red-400">Authentication Error</h1>
+          <p className="mt-2 text-red-600 dark:text-red-400">{error}</p>
+          <button
+            onClick={() => router.push("/")}
+            className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
+          >
+            Return to Homepage
+          </button>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={<LoadingFallback />}>
-      <ClientAuthCallback />
-    </Suspense>
+    <div className="flex min-h-[calc(100vh-80px)] flex-col items-center justify-center p-8">
+      <Logo size="large" />
+      <div className="mt-8 flex flex-col items-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+        <h1 className="mt-4 text-xl font-bold">Authenticating with AniList</h1>
+        <p className="mt-2 text-muted-foreground">Please wait while we complete your authentication...</p>
+      </div>
+    </div>
   );
 } 

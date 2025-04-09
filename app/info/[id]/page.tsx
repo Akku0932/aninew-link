@@ -4,11 +4,10 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Play, Info, Star, Calendar, Clock, List, ChevronDown, Users, Heart } from "lucide-react"
+import { Play, Info, Star, Calendar, Clock, List, ChevronDown, Bookmark, Users, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import AnimeFavoriteButton from "@/components/anime-favorite-button"
 import {
   Tooltip,
   TooltipContent,
@@ -16,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import AnimeAniListButton from "@/components/anime-anilist-button"
 
 // Update the types to match the API responses
 type AnimeInfo = {
@@ -322,21 +322,15 @@ export default function AnimeInfoPage() {
                 </Tooltip>
               </TooltipProvider>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AnimeFavoriteButton 
-                      animeId={id}
-                      title={title} 
-                      image={image}
-                      type={type}
-                      anilistId={info.anilistId || undefined}
-                      className="w-full dark:bg-gray-800 bg-white"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>Add to watchlist</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <AnimeAniListButton 
+                animeId={id as string}
+                anilistId={info.anilistId}
+                title={title}
+                image={image}
+                type={type}
+                className="w-full"
+                variant="button"
+              />
             </div>
 
             <div className="rounded-lg dark:bg-gray-800 bg-white p-4 border dark:border-gray-700 border-gray-200">

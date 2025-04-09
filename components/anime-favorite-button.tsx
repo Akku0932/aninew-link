@@ -1,57 +1,54 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Heart } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
 
 interface AnimeFavoriteButtonProps {
   animeId: string;
+  anilistId?: string;
   title: string;
   image: string;
   type?: string;
-  anilistId?: string;
   className?: string;
 }
 
 export default function AnimeFavoriteButton({
   animeId,
+  anilistId,
   title,
   image,
   type,
-  anilistId,
   className
 }: AnimeFavoriteButtonProps) {
+  const { user, isAuthenticated, addToFavorites, removeFromFavorites, isFavorite } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
-  const { user, isAuthenticated, isFavorite, addToFavorites, removeFromFavorites } = useAuth();
   const router = useRouter();
   
-  const isFavorited = isFavorite(animeId);
+  const isFavorited = user ? isFavorite(animeId) : false;
   
-  const handleToggleFavorite = async () => {
+  const handleToggleFavorite = () => {
     if (!isAuthenticated) {
-      // Redirect to login if not authenticated
-      router.push("/auth/callback?returnUrl=" + encodeURIComponent(`/info/${animeId}`));
+      router.push("/login");
       return;
     }
     
     setIsProcessing(true);
+    
     try {
       if (isFavorited) {
-        await removeFromFavorites(animeId);
+        removeFromFavorites(animeId);
       } else {
-        await addToFavorites({
+        addToFavorites({
           id: animeId,
+          anilistId,
           title,
           image,
-          type,
-          anilistId
+          type
         });
       }
-    } catch (error) {
-      console.error("Failed to toggle favorite status:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -59,21 +56,14 @@ export default function AnimeFavoriteButton({
   
   return (
     <Button
-      variant={isFavorited ? "default" : "outline"}
-      className={cn(
-        "relative",
-        isFavorited && "bg-pink-600 hover:bg-pink-700 text-white border-pink-600",
-        isProcessing && "opacity-70 pointer-events-none",
-        className
-      )}
       onClick={handleToggleFavorite}
+      variant={isFavorited ? "default" : "outline"}
+      size="sm"
+      className={className}
       disabled={isProcessing}
     >
       <Heart 
-        className={cn(
-          "h-4 w-4 mr-2",
-          isFavorited ? "fill-white" : "fill-none"
-        )} 
+        className={`mr-2 h-4 w-4 ${isFavorited ? "fill-current" : ""}`} 
       />
       {isFavorited ? "Saved" : "Save"}
     </Button>
