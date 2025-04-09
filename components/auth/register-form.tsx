@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Eye, EyeOff, LockKeyhole, Mail, User } from "lucide-react"
 import Logo from "@/components/logo"
 import { useAuth } from "@/context/auth-context"
+import { Button } from "@/components/ui/button"
 
 export default function RegisterForm() {
   const [name, setName] = useState("")
@@ -55,10 +56,15 @@ export default function RegisterForm() {
     }
   }
 
-  const handleAniListSignup = () => {
+  const handleMALSignup = () => {
     setIsLoading(true)
-    // Redirect to AniList OAuth flow with the provided client ID
-    window.location.href = "https://anilist.co/api/v2/oauth/authorize?client_id=25870&redirect_uri=https://aninew-link.vercel.app/auth/callback&response_type=code"
+    // Redirect to MAL OAuth flow
+    const redirectUri = encodeURIComponent('https://aninew-link.vercel.app/auth/callback');
+    const responseType = 'code';
+    const clientId = '5105b8eb05adcc56e3c1eff800c98a30';
+    
+    // Redirect to MyAnimeList OAuth flow with the provided client ID
+    window.location.href = `https://myanimelist.net/v1/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}`;
   }
 
   return (
@@ -218,18 +224,30 @@ export default function RegisterForm() {
         </div>
       </div>
       
-      <button
+      <div className="flex items-center space-x-2">
+        <div className="flex-1 h-px bg-border"></div>
+        <div className="text-sm text-muted-foreground">OR</div>
+        <div className="flex-1 h-px bg-border"></div>
+      </div>
+
+      <Button
+        variant="outline"
         type="button"
-        onClick={handleAniListSignup}
-        className="flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex items-center justify-center gap-2"
+        onClick={handleMALSignup}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M6.36 0L0 12.93V24H6.36V12.93L12.72 0H6.36Z" fill="#02A9FF"/>
-          <path d="M17.52 6.3H23.88L17.52 19.41L11.34 6.3H17.52Z" fill="#02A9FF"/>
-          <path d="M17.52 24H23.88V6.3H17.52V24Z" fill="#02A9FF"/>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 72 72"
+          className="h-5 w-5"
+        >
+          <path fill="#1100ff" d="M48 16H24a8 8 0 0 0-8 8v24a8 8 0 0 0 8 8h24a8 8 0 0 0 8-8V24a8 8 0 0 0-8-8Z"/>
+          <path fill="#fff" d="M34 52h-6V20h6zm4-32h6v20l-6-3zm0 20 6 3v9h-6z"/>
         </svg>
-        <span>Sign up with AniList</span>
-      </button>
+        <span>Sign up with MyAnimeList</span>
+      </Button>
       
       <div className="mt-4 text-center text-sm">
         Already have an account?{" "}

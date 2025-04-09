@@ -3,81 +3,76 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import Logo from "@/components/logo";
+import { Loader2 } from "lucide-react";
 
-export default function AuthCallbackPage() {
+export default function AuthCallback() {
   const router = useRouter();
-  const { loginWithAniList } = useAuth();
+  const { loginWithMAL } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
-    async function handleCallback() {
+    const processAuth = async () => {
       try {
-        // Log the full URL for debugging
-        const fullUrl = window.location.href;
-        const searchParams = window.location.search;
-        setDebugInfo(`Full URL: ${fullUrl}\nSearch params: ${searchParams}`);
-        console.log("Full callback URL:", fullUrl);
-        console.log("Search params:", searchParams);
-        
-        // Get the code from the URL
+        // Get the code from URL
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get("code");
-        console.log("Code from URL:", code);
-        
-        if (!code) {
-          setError("Authentication failed: No code provided");
-          setIsLoading(false);
+        const error = urlParams.get("error");
+
+        if (error) {
+          setError(`Authentication failed: ${error}`);
+          setIsProcessing(false);
           return;
         }
+
+        if (!code) {
+          setError("No authentication code received");
+          setIsProcessing(false);
+          return;
+        }
+
+        // Process authentication
+        await loginWithMAL(code);
         
-        // Process the auth code
-        await loginWithAniList(code);
-        
-        // Redirect after successful login
-        router.push("/profile");
-      } catch (err) {
+        // Redirect to home page after successful login
+        router.push("/");
+      } catch (err: any) {
         console.error("Authentication error:", err);
-        setError(err instanceof Error ? err.message : "Authentication failed");
-        setIsLoading(false);
+        setError(err.message || "Authentication failed");
+        setIsProcessing(false);
       }
-    }
-    
-    handleCallback();
-  }, [loginWithAniList, router]);
+    };
+
+    processAuth();
+  }, [loginWithMAL, router]);
 
   if (error) {
     return (
-      <div className="flex min-h-[calc(100vh-80px)] flex-col items-center justify-center p-8">
-        <Logo size="large" />
-        <div className="mt-8 rounded-lg border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/30">
-          <h1 className="text-xl font-bold text-red-600 dark:text-red-400">Authentication Error</h1>
-          <p className="mt-2 text-red-600 dark:text-red-400">{error}</p>
-          {debugInfo && (
-            <div className="mt-4 rounded bg-gray-100 p-3 text-left text-xs font-mono text-gray-800 dark:bg-gray-900 dark:text-gray-200">
-              <pre className="whitespace-pre-wrap">{debugInfo}</pre>
-            </div>
-          )}
-          <button
-            onClick={() => router.push("/")}
-            className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
-          >
-            Return to Homepage
-          </button>
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">Authentication Error</h1>
+            <p className="mt-2 text-muted-foreground">{error}</p>
+            <button
+              onClick={() => router.push("/login")}
+              className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+            >
+              Return to Login
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-80px)] flex-col items-center justify-center p-8">
-      <Logo size="large" />
-      <div className="mt-8 flex flex-col items-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-        <h1 className="mt-4 text-xl font-bold">Authenticating with AniList</h1>
-        <p className="mt-2 text-muted-foreground">Please wait while we complete your authentication...</p>
+    <div className="flex min-h-screen flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <h1 className="mt-4 text-xl font-bold">Authenticating with MyAnimeList</h1>
+          <p className="mt-2 text-muted-foreground">Please wait while we complete the process...</p>
+        </div>
       </div>
     </div>
   );

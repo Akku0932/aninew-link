@@ -173,52 +173,62 @@ export default function EditProfilePage() {
                 />
               </div>
               
-              {user.provider === "anilist" && (
-                <div className="rounded-md bg-blue-50 p-4 dark:bg-blue-950/30">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-500">
-                        <path d="M6.36 0L0 12.93V24H6.36V12.93L12.72 0H6.36Z" fill="currentColor"/>
-                        <path d="M17.52 6.3H23.88L17.52 19.41L11.34 6.3H17.52Z" fill="currentColor"/>
-                        <path d="M17.52 24H23.88V6.3H17.52V24Z" fill="currentColor"/>
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300">AniList Connected</h3>
-                      <div className="mt-1 text-sm text-blue-700 dark:text-blue-400">
-                        <p>Your account is linked to AniList. Some profile information may sync from your AniList account.</p>
+              {/* Connected services section */}
+              <div className="mt-8">
+                <h2 className="text-lg font-semibold">Connected Services</h2>
+                
+                {user.provider === "mal" && (
+                  <div className="mt-4 flex items-center justify-between rounded-lg border p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 72 72"
+                          className="h-6 w-6"
+                        >
+                          <path fill="#1100ff" d="M48 16H24a8 8 0 0 0-8 8v24a8 8 0 0 0 8 8h24a8 8 0 0 0 8-8V24a8 8 0 0 0-8-8Z"/>
+                          <path fill="#fff" d="M34 52h-6V20h6zm4-32h6v20l-6-3zm0 20 6 3v9h-6z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300">MyAnimeList Connected</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Your account is linked to MyAnimeList. Some profile information may sync from your MyAnimeList account.
+                        </p>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-          
-          <CardFooter className="flex flex-col items-start space-y-2 sm:flex-row sm:justify-between sm:space-y-0">
-            <div>
-              {saveMessage && (
-                <p className={`text-sm ${saveMessage.includes("successfully") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                  {saveMessage}
-                </p>
-              )}
-            </div>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? (
-                <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes
-                </>
-              )}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+                )}
+              </div>
+            </CardContent>
+            
+            <CardFooter className="flex flex-col items-start space-y-2 sm:flex-row sm:justify-between sm:space-y-0">
+              <div>
+                {saveMessage && (
+                  <p className={`text-sm ${saveMessage.includes("successfully") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                    {saveMessage}
+                  </p>
+                )}
+              </div>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 } 

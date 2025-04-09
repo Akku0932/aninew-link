@@ -15,7 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import AnimeAniListButton from "@/components/anime-anilist-button"
+import AnimeMALButton from "@/components/anime-mal-button"
 
 // Update the types to match the API responses
 type AnimeInfo = {
@@ -40,6 +40,7 @@ type AnimeInfo = {
     favorites?: number
     rate?: string
     anilistId?: string
+    malId?: string
   }
   otherInfo: {
     japanese?: string
@@ -322,12 +323,12 @@ export default function AnimeInfoPage() {
                 </Tooltip>
               </TooltipProvider>
 
-              <AnimeAniListButton 
+              <AnimeMALButton
                 animeId={id as string}
-                anilistId={info.anilistId}
-                title={title}
-                image={image}
-                type={type}
+                malId={info.malId}
+                title={info.title || ""}
+                image={info.image || ""}
+                type={info.type || "TV"}
                 className="w-full"
                 variant="button"
               />

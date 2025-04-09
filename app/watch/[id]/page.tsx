@@ -17,7 +17,7 @@ import { toast } from "@/components/ui/use-toast"
 import Image from "next/image"
 import Link from "next/link"
 import AnimeFavoriteButton from "@/components/anime-favorite-button"
-import AnimeAniListButton from "@/components/anime-anilist-button"
+import AnimeMALButton from "@/components/anime-mal-button"
 
 type Episode = {
   title: string
@@ -43,6 +43,7 @@ type AnimeInfo = {
     pg?: string
     quality?: string
     anilistId?: string
+    malId?: number
   }
   otherInfo?: {
     genres?: string[]
@@ -1753,14 +1754,14 @@ export default function WatchPage() {
                     {animeInfo?.info?.description || "No description available"}
                   </p>
                   
-                  {/* Add AniList buttons */}
-                  <div className="flex mt-2">
-                    <AnimeAniListButton
-                      animeId={id as string}
-                      anilistId={animeInfo?.info?.anilistId}
-                      title={animeInfo?.info?.name || "Unknown Anime"}
-                      image={animeInfo?.info?.img || "/placeholder.svg"}
-                      type={animeInfo?.info?.type || "TV"}
+                  {/* Add MAL buttons */}
+                  <div className="flex sm:mt-0 mt-2">
+                    <AnimeMALButton
+                      animeId={params.id as string}
+                      malId={animeInfo?.info?.malId}
+                      title={animeInfo?.info?.title || ""}
+                      image={animeInfo?.info?.img || ""}
+                      type="TV"
                       variant="icon"
                     />
                   </div>

@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Heart, User as UserIcon, Clock, Settings, LogOut } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function ProfilePage() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
@@ -44,35 +45,36 @@ export default function ProfilePage() {
           <div className="rounded-lg border bg-card p-6 shadow-sm">
             <div className="flex flex-col items-center space-y-4">
               <div className="relative h-24 w-24">
-                {user.avatarUrl ? (
-                  <Image
-                    src={user.avatarUrl}
-                    alt={user.name}
-                    fill
-                    className="rounded-full object-cover"
+                <Avatar className="h-24 w-24 border">
+                  <AvatarImage 
+                    src={user.avatarUrl || "https://i.pravatar.cc/150?img=24"} 
+                    alt={user.name} 
                   />
-                ) : (
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10">
-                    <span className="text-3xl font-semibold text-primary">
-                      {user.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
+                  <AvatarFallback>{user.name[0]}</AvatarFallback>
+                </Avatar>
               </div>
               
               <div className="text-center">
-                <h2 className="text-xl font-bold">{user.name}</h2>
-                <p className="text-sm text-muted-foreground">{user.email}</p>
-                {user.provider === "anilist" && (
-                  <div className="mt-1 flex items-center justify-center gap-1">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M6.36 0L0 12.93V24H6.36V12.93L12.72 0H6.36Z" fill="#02A9FF"/>
-                      <path d="M17.52 6.3H23.88L17.52 19.41L11.34 6.3H17.52Z" fill="#02A9FF"/>
-                      <path d="M17.52 24H23.88V6.3H17.52V24Z" fill="#02A9FF"/>
-                    </svg>
-                    <span className="text-xs text-muted-foreground">AniList User</span>
+                <div className="flex items-center space-x-2">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium leading-none">{user.name}</h3>
+                    {user.provider === "mal" && (
+                      <div className="flex items-center">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 72 72"
+                          className="mr-1"
+                        >
+                          <path fill="#1100ff" d="M48 16H24a8 8 0 0 0-8 8v24a8 8 0 0 0 8 8h24a8 8 0 0 0 8-8V24a8 8 0 0 0-8-8Z"/>
+                          <path fill="#fff" d="M34 52h-6V20h6zm4-32h6v20l-6-3zm0 20 6 3v9h-6z"/>
+                        </svg>
+                        <span className="text-xs text-muted-foreground">MyAnimeList User</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
               
               <div className="flex w-full flex-col space-y-2">
@@ -154,14 +156,20 @@ export default function ProfilePage() {
                             {new Date(anime.addedAt).toLocaleDateString()}
                           </span>
                         </div>
-                        {anime.anilistId && (
-                          <div className="mt-2 flex items-center gap-1">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M6.36 0L0 12.93V24H6.36V12.93L12.72 0H6.36Z" fill="#02A9FF"/>
-                              <path d="M17.52 6.3H23.88L17.52 19.41L11.34 6.3H17.52Z" fill="#02A9FF"/>
-                              <path d="M17.52 24H23.88V6.3H17.52V24Z" fill="#02A9FF"/>
+                        {/* Only show MAL ID if available */}
+                        {anime.malId && (
+                          <div className="flex items-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="12"
+                              height="12"
+                              viewBox="0 0 72 72"
+                              className="mr-1"
+                            >
+                              <path fill="#1100ff" d="M48 16H24a8 8 0 0 0-8 8v24a8 8 0 0 0 8 8h24a8 8 0 0 0 8-8V24a8 8 0 0 0-8-8Z"/>
+                              <path fill="#fff" d="M34 52h-6V20h6zm4-32h6v20l-6-3zm0 20 6 3v9h-6z"/>
                             </svg>
-                            <span className="text-xs text-blue-400">ID: {anime.anilistId}</span>
+                            <span className="text-xs text-blue-400">ID: {anime.malId}</span>
                           </div>
                         )}
                       </div>

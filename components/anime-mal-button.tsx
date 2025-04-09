@@ -18,9 +18,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface AnimeAniListButtonProps {
+interface AnimeMALButtonProps {
   animeId: string;
-  anilistId?: string; // The AniList ID if known
+  malId?: string; // The MyAnimeList ID if known
   title: string;
   image: string;
   type?: string;
@@ -28,23 +28,23 @@ interface AnimeAniListButtonProps {
   variant?: "icon" | "button";
 }
 
-export default function AnimeAniListButton({
+export default function AnimeMALButton({
   animeId,
-  anilistId,
+  malId,
   title,
   image,
   type,
   className = "",
   variant = "button"
-}: AnimeAniListButtonProps) {
-  const { user, isAuthenticated, addToFavorites, removeFromFavorites, isFavorite, addToAniList } = useAuth();
+}: AnimeMALButtonProps) {
+  const { user, isAuthenticated, addToFavorites, removeFromFavorites, isFavorite, addToMAL } = useAuth();
   const [isLiking, setIsLiking] = useState(false);
   const [isAddingToList, setIsAddingToList] = useState(false);
   const router = useRouter();
   
   const isFavorited = user ? isFavorite(animeId) : false;
   
-  // Function to handle liking the anime on AniList
+  // Function to handle liking the anime on MyAnimeList
   const handleLike = async () => {
     if (!isAuthenticated) {
       router.push("/login");
@@ -60,7 +60,7 @@ export default function AnimeAniListButton({
       } else {
         await addToFavorites({
           id: animeId,
-          anilistId,
+          malId,
           title,
           image,
           type
@@ -73,7 +73,7 @@ export default function AnimeAniListButton({
     }
   };
   
-  // Function to add anime to AniList collection (PLANNING, WATCHING, COMPLETED, etc.)
+  // Function to add anime to MyAnimeList collection (watching, completed, etc.)
   const handleAddToList = async (status: string) => {
     if (!isAuthenticated) {
       router.push("/login");
@@ -83,16 +83,16 @@ export default function AnimeAniListButton({
     setIsAddingToList(true);
     
     try {
-      if (anilistId) {
-        // Use the new addToAniList function
-        const success = await addToAniList(animeId, anilistId, status);
+      if (malId) {
+        // Use the addToMAL function
+        const success = await addToMAL(animeId, malId, status);
         
         if (success) {
           // Also add to local favorites if not already there
           if (!isFavorited) {
             await addToFavorites({
               id: animeId,
-              anilistId,
+              malId,
               title,
               image,
               type
@@ -100,11 +100,11 @@ export default function AnimeAniListButton({
           }
         }
       } else {
-        // If no AniList ID, just add to local favorites
+        // If no MyAnimeList ID, just add to local favorites
         if (!isFavorited) {
           await addToFavorites({
             id: animeId,
-            anilistId,
+            malId,
             title,
             image,
             type
@@ -137,7 +137,7 @@ export default function AnimeAniListButton({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{isFavorited ? "Unlike" : "Like"} on AniList</p>
+              <p>{isFavorited ? "Unlike" : "Like"} on MyAnimeList</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -158,25 +158,25 @@ export default function AnimeAniListButton({
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleAddToList("PLANNING")}>
-                  Planning
+                <DropdownMenuItem onClick={() => handleAddToList("plan_to_watch")}>
+                  Plan to Watch
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddToList("CURRENT")}>
+                <DropdownMenuItem onClick={() => handleAddToList("watching")}>
                   Watching
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddToList("COMPLETED")}>
+                <DropdownMenuItem onClick={() => handleAddToList("completed")}>
                   Completed
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddToList("PAUSED")}>
-                  Paused
+                <DropdownMenuItem onClick={() => handleAddToList("on_hold")}>
+                  On Hold
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddToList("DROPPED")}>
+                <DropdownMenuItem onClick={() => handleAddToList("dropped")}>
                   Dropped
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <TooltipContent>
-              <p>Add to AniList</p>
+              <p>Add to MyAnimeList</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -212,19 +212,19 @@ export default function AnimeAniListButton({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => handleAddToList("PLANNING")}>
-            Planning
+          <DropdownMenuItem onClick={() => handleAddToList("plan_to_watch")}>
+            Plan to Watch
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleAddToList("CURRENT")}>
+          <DropdownMenuItem onClick={() => handleAddToList("watching")}>
             Watching
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleAddToList("COMPLETED")}>
+          <DropdownMenuItem onClick={() => handleAddToList("completed")}>
             Completed
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleAddToList("PAUSED")}>
-            Paused
+          <DropdownMenuItem onClick={() => handleAddToList("on_hold")}>
+            On Hold
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleAddToList("DROPPED")}>
+          <DropdownMenuItem onClick={() => handleAddToList("dropped")}>
             Dropped
           </DropdownMenuItem>
         </DropdownMenuContent>
