@@ -159,6 +159,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true)
     
     try {
+      console.log("Starting AniList authentication with code:", code);
+      
       // Make the token exchange request
       const response = await fetch("https://anilist.co/api/v2/oauth/token", {
         method: "POST",
@@ -175,9 +177,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
       });
 
-      // In a real implementation, you would parse the response and get the token
+      console.log("AniList token response status:", response.status);
+      
+      // Check if the response is not ok and log the error
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("AniList token error response:", errorData);
+        throw new Error(`AniList token exchange failed: ${response.status} ${response.statusText}`);
+      }
+      
+      // Try to parse the response
+      let tokenData;
+      try {
+        tokenData = await response.json();
+        console.log("AniList token response data:", tokenData);
+      } catch (parseError) {
+        console.error("Failed to parse AniList token response:", parseError);
+        throw new Error("Invalid response from AniList");
+      }
+      
+      // In a real implementation, you would use the actual token from the response
+      // const token = tokenData.access_token;
       // For demo purposes, we'll simulate a successful response
-      const token = `simulated_anilist_token_${Date.now()}`;
+      const token = tokenData?.access_token || `simulated_anilist_token_${Date.now()}`;
       
       // Get the user's profile from AniList using the token
       // In a real app, we would make a GraphQL query to get user data
@@ -204,6 +226,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         anilistToken: token
       };
       
+      console.log("Created user data:", userData.id);
+      
       localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
       setIsLoading(false);
@@ -211,7 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Failed to authenticate with AniList:", error);
       setIsLoading(false);
-      throw new Error("Failed to authenticate with AniList");
+      throw error;
     }
   }
 
