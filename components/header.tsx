@@ -134,9 +134,14 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-black transition-colors duration-300 px-4 md:px-6">
       <div className="flex items-center">
-        <Link href="/" className="mr-6 flex items-center">
-          <Logo size="small" withLink={false} />
-        </Link>
+        <div className="mr-6 group relative">
+          <div className="absolute inset-0 transition-opacity opacity-100 group-hover:opacity-0">
+            <Logo size="small" variant="default" />
+          </div>
+          <div className="transition-opacity opacity-0 group-hover:opacity-100">
+            <Logo size="small" variant="pink" />
+          </div>
+        </div>
       </div>
 
       <div ref={searchRef} className="relative flex-1 max-w-md mx-4">

@@ -333,20 +333,19 @@ export default function AnimeInfoPage() {
             </div>
 
             {/* MyAnimeList Integration Panel */}
-            <div className="rounded-lg dark:bg-gray-800 bg-white p-4 border dark:border-gray-700 border-gray-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
+            <div className="rounded-lg dark:bg-gray-900 bg-gray-50 p-5 border dark:border-gray-800 border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
+                    width="24"
+                    height="24"
                     viewBox="0 0 72 72"
-                    className="mr-2"
                   >
                     <path fill="#1100ff" d="M48 16H24a8 8 0 0 0-8 8v24a8 8 0 0 0 8 8h24a8 8 0 0 0 8-8V24a8 8 0 0 0-8-8Z"/>
                     <path fill="#fff" d="M34 52h-6V20h6zm4-32h6v20l-6-3zm0 20 6 3v9h-6z"/>
                   </svg>
-                  <h3 className="font-semibold dark:text-white text-gray-900">MyAnimeList</h3>
+                  <h3 className="font-bold text-lg dark:text-white text-gray-900">MyAnimeList</h3>
                 </div>
                 
                 {info.malId && (
@@ -363,16 +362,14 @@ export default function AnimeInfoPage() {
               </div>
               
               {info.malId ? (
-                <div className="space-y-3">
-                  <AnimeMALStatus
-                    animeId={id as string}
-                    malId={info.malId}
-                    title={info.title || info.name || ""}
-                    showLabel={false}
-                    className="w-full"
-                    totalEpisodes={info.eps ? Number(info.eps) : 0}
-                  />
-                </div>
+                <AnimeMALStatus
+                  animeId={id as string}
+                  malId={info.malId}
+                  title={info.title || info.name || ""}
+                  showLabel={false}
+                  className="w-full"
+                  totalEpisodes={info.eps ? Number(info.eps) : 0}
+                />
               ) : (
                 <div className="text-sm dark:text-gray-400 text-gray-600 text-center py-2">
                   No MyAnimeList ID available for this anime
