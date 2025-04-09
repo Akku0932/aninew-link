@@ -136,10 +136,10 @@ export default function Header() {
       <div className="flex items-center">
         <div className="mr-6 group relative">
           <div className="absolute inset-0 transition-opacity opacity-100 group-hover:opacity-0">
-            <Logo size="small" variant="default" />
+            <Logo size="small" variant="pink" />
           </div>
           <div className="transition-opacity opacity-0 group-hover:opacity-100">
-            <Logo size="small" variant="pink" />
+            <Logo size="small" variant="default" />
           </div>
         </div>
       </div>

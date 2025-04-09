@@ -286,7 +286,7 @@ export default function AnimeMALStatus({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" className="w-56">
             <DropdownMenuLabel className="text-center">
-              Add to MyAnimeList
+              Set Status
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -402,7 +402,7 @@ export default function AnimeMALStatus({
                     type="number"
                     id="episodes"
                     min={0}
-                    max={totalEpisodes > 0 ? totalEpisodes : undefined}
+                    max={totalEpisodes > 0 ? totalEpisodes : 999}
                     value={editEpisodes}
                     onChange={(e) => setEditEpisodes(parseInt(e.target.value) || 0)}
                     className="w-20"
